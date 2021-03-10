@@ -71,7 +71,8 @@ public:
     callbacks.assignment_statement = [&body](const AssignmentStatement& assignment_statement) {
       body += detail::format_node(assignment_statement.id, ":=");
       body += detail::format_node_edge(assignment_statement.id, assignment_statement.variable.id);
-      body += detail::format_node_edge(assignment_statement.id, std::visit(detail::NodeIdExtractorFn{}, assignment_statement.expression));
+      body += detail::format_node_edge(assignment_statement.id,
+                                       std::visit(detail::NodeIdExtractorFn{}, assignment_statement.expression));
     };
     callbacks.unary_op = [&body](const UnaryOp& unary_op) {
       body += detail::format_node(unary_op.id, fmt::format("Unary({})", unary_op.op_type));
@@ -87,6 +88,9 @@ public:
     };
     callbacks.num = [&body](const Num& num) {
       body += detail::format_node(num.id, fmt::format("Num({})", num.value));
+    };
+    callbacks.empty = [&body](const Empty& empty) {
+      body += detail::format_node(empty.id, "Empty");
     };
 
     AstVisitorFn{callbacks}.visit(program);

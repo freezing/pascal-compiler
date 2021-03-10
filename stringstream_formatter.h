@@ -6,13 +6,14 @@
 #define PASCAL_COMPILER_TUTORIAL__STRINGSTREAM_FORMATTER_H
 
 #include <sstream>
+#include <variant>
 #include <fmt/format.h>
 
 namespace freezing::interpreter {
 
-template <typename T>
+template<typename T>
 struct StringStreamFormatter : fmt::formatter<std::string> {
-  template <typename FormatContext>
+  template<typename FormatContext>
   auto format(const T& value, FormatContext& ctx) {
     std::stringstream ss{};
     ss << value;

@@ -248,7 +248,7 @@ Result<Variable> Parser::parse_variable() {
 }
 
 Empty Parser::parse_empty() {
-  return Empty{};
+  return Empty{node_id_generator.next()};
 }
 
 Result<ExpressionNode> Parser::parse_expr() {

@@ -20,6 +20,7 @@ struct AstVisitorCallbacks {
   std::function<void(const BinOp&)> bin_op = [](const BinOp&) {};
   std::function<void(const Variable&)> variable = [](const Variable&) {};
   std::function<void(const Num&)> num = [](const Num&) {};
+  std::function<void(const Empty&)> empty = [](const Empty&) {};
 };
 
 struct AstVisitorFn {
@@ -54,7 +55,9 @@ struct AstVisitorFn {
       self.visit(assignment_statement);
     }
 
-    void operator()(const Empty&) const {}
+    void operator()(const Empty& empty) const {
+      self.visit(empty);
+    }
   };
 
   AstVisitorCallbacks callbacks;
@@ -73,6 +76,9 @@ struct AstVisitorFn {
   }
 
   void visit(const VarDecl& var_decl) const {
+    for (const auto& variable : var_decl.variables) {
+      visit(variable);
+    }
     std::invoke(callbacks.var_decl, var_decl);
   }
 
@@ -106,6 +112,10 @@ struct AstVisitorFn {
 
   void visit(const Num& num) const {
     std::invoke(callbacks.num, num);
+  }
+
+  void visit(const Empty& empty) const {
+    std::invoke(callbacks.empty, empty);
   }
 };
 

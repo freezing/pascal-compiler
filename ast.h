@@ -18,13 +18,17 @@ struct BinOp;
 struct UnaryOp;
 struct Variable;
 struct Num;
-
-struct Empty {};
+struct Empty;
 
 // Includes expression, factor and term nodes.
 using Identifier = std::string;
+using NumType = std::variant<int, double>;
 using ExpressionNode = std::variant<BinOp, UnaryOp, Variable, Num>;
 using Statement = std::variant<CompoundStatement, AssignmentStatement, Empty>;
+
+struct Empty {
+  NodeId id;
+};
 
 struct Variable {
   NodeId id;
@@ -33,7 +37,7 @@ struct Variable {
 
 struct Num {
   NodeId id;
-  std::variant<int, double> value;
+  NumType value;
 };
 
 struct UnaryOp {
@@ -83,5 +87,16 @@ struct Program {
 };
 
 }
+
+template<>
+struct fmt::formatter<freezing::interpreter::NumType>
+    : freezing::interpreter::StringStreamFormatter<freezing::interpreter::NumType> {
+  template<typename FormatContext>
+  auto format(const freezing::interpreter::NumType& value, FormatContext& ctx) {
+    std::stringstream ss{};
+    std::visit([&ss](const auto& v) { ss << v; }, value);
+    return fmt::format_to(ctx.out(), "{}", ss.str());
+  }
+};
 
 #endif //PASCAL_COMPILER_TUTORIAL__AST_H

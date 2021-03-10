@@ -79,72 +79,74 @@ void Lexer::skip_until_comment_close() {
 }
 
 Result<Token> Lexer::parse_token() {
-  skip_whitespaces();
+  while (true) {
+    skip_whitespaces();
+    if (pos_ >= text_.size()) {
+      return {Token{TokenType::END_OF_FILE, {}}};
+    }
 
-  if (pos_ >= text_.size()) {
-    return {Token{TokenType::END_OF_FILE, {}}};
-  }
+    // TODO: Use peek_char().
+    char current_char = next_char();
 
-  // TODO: Use peek_char().
-  char current_char = next_char();
+    if (current_char == '{') {
+      skip_until_comment_close();
+      continue;
+    } else if (isdigit(current_char)) {
+      std::string value;
+      value += current_char;
 
-  if (current_char == '{') {
-    skip_until_comment_close();
-  } else if (isdigit(current_char)) {
-    std::string value;
-    value += current_char;
+      while (pos_ < text_.size() && isdigit(peek_char())) {
+        value += next_char();
+      }
 
-    while (pos_ < text_.size() && isdigit(peek_char())) {
+      if (peek_char() != '.') {
+        return Token{TokenType::INTEGER_CONST, std::move(value)};
+      }
+      // Otherwise it's REAL.
       value += next_char();
-    }
+      while (pos_ < text_.size() && isdigit(peek_char())) {
+        value += next_char();
+      }
+      return Token{TokenType::REAL_CONST, std::move(value)};
+    } else if (current_char == '+') {
+      return Token{TokenType::PLUS, "+"};
+    } else if (current_char == '-') {
+      return Token{TokenType::MINUS, "-"};
+    } else if (current_char == '*') {
+      return Token{TokenType::MUL, "*"};
+    } else if (current_char == '/') {
+      return Token{TokenType::REAL_DIV, "/"};
+    } else if (current_char == '(') {
+      return Token{TokenType::OPEN_BRACKET, "("};
+    } else if (current_char == ')') {
+      return Token{TokenType::CLOSED_BRACKET, ")"};
+    } else if (current_char == '.') {
+      return Token{TokenType::DOT, "."};
+    } else if (current_char == ':' && peek_char() == '=') {
+      next_char();
+      return Token{TokenType::ASSIGN, ":="};
+    } else if (current_char == ':') {
+      return Token{TokenType::COLON, ":"};
+    } else if (current_char == ';') {
+      return Token{TokenType::SEMICOLON, ";"};
+    } else if (current_char == ',') {
+      return Token{TokenType::COMMA, ","};
+    } else if (isalpha(current_char)) {
+      std::string id;
+      id += current_char;
 
-    if (peek_char() != '.') {
-      return Token{TokenType::INTEGER_CONST, std::move(value)};
-    }
-    // Otherwise it's REAL.
-    value += next_char();
-    while (pos_ < text_.size() && isdigit(peek_char())) {
-      value += next_char();
-    }
-    return Token{TokenType::REAL_CONST, std::move(value)};
-  } else if (current_char == '+') {
-    return Token{TokenType::PLUS, "+"};
-  } else if (current_char == '-') {
-    return Token{TokenType::MINUS, "-"};
-  } else if (current_char == '*') {
-    return Token{TokenType::MUL, "*"};
-  } else if (current_char == '/') {
-    return Token{TokenType::REAL_DIV, "/"};
-  } else if (current_char == '(') {
-    return Token{TokenType::OPEN_BRACKET, "("};
-  } else if (current_char == ')') {
-    return Token{TokenType::CLOSED_BRACKET, ")"};
-  } else if (current_char == '.') {
-    return Token{TokenType::DOT, "."};
-  } else if (current_char == ':' && peek_char() == '=') {
-    next_char();
-    return Token{TokenType::ASSIGN, ":="};
-  } else if (current_char == ':') {
-    return Token{TokenType::COLON, ":"};
-  } else if (current_char == ';') {
-    return Token{TokenType::SEMICOLON, ";"};
-  } else if (current_char == ',') {
-    return Token{TokenType::COMMA, ","};
-  } else if (isalpha(current_char)) {
-    std::string id;
-    id += current_char;
+      while (pos_ < text_.size() && isalnum(peek_char())) {
+        id += next_char();
+      }
 
-    while (pos_ < text_.size() && isalnum(peek_char())) {
-      id += next_char();
+      auto it = kReservedKeywords.find(id);
+      if (it == kReservedKeywords.end()) {
+        return Token{TokenType::ID, std::move(id)};
+      }
+      return it->second;
     }
-
-    auto it = kReservedKeywords.find(id);
-    if (it == kReservedKeywords.end()) {
-      return Token{TokenType::ID, std::move(id)};
-    }
-    return it->second;
+    return make_error(fmt::format("Unknown character: {}", current_char));
   }
-  return make_error(fmt::format("Unknown character: {}", current_char));
 }
 
 }
