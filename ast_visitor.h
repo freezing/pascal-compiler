@@ -20,7 +20,7 @@ struct AstNodeVariantVisitTypedFn {
 
 template<typename NodeResultT>
 struct AstVisitorFn {
-  std::function<NodeResultT(const AstNode*, const CompoundStatement, NodeResultT&&)> compound_statement_callback;
+  std::function<NodeResultT(const AstNode*, const CompoundStatement&, std::vector<NodeResultT>&&)> compound_statement_callback;
   std::function<NodeResultT(const AstNode*, const StatementList&, std::vector<NodeResultT>&&)> statement_list_callback;
   std::function<NodeResultT(const AstNode*, const AssignmentStatement&, NodeResultT&&, NodeResultT&&)>
       assignment_statement_callback;
@@ -89,7 +89,7 @@ struct AstVisitorFn {
       }
     };
 
-    return std::visit(VisitorWithResult{tree}, tree->value);
+    return std::visit(VisitorWithResult{*this, tree}, tree->value);
   }
 };
 
