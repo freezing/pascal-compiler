@@ -10,160 +10,102 @@
 
 namespace freezing::interpreter {
 
-namespace detail {
-
-struct AstNodeVariantVisitTypedFn {
-
+struct AstVisitorCallbacks {
+  std::function<void(const Program&)> program = [](const Program&) {};
+  std::function<void(const Block&)> block = [](const Block&) {};
+  std::function<void(const VarDecl&)> var_decl = [](const VarDecl&) {};
+  std::function<void(const CompoundStatement&)> compound_statement = [](const CompoundStatement&) {};
+  std::function<void(const AssignmentStatement&)> assignment_statement = [](const AssignmentStatement&) {};
+  std::function<void(const UnaryOp&)> unary_op = [](const UnaryOp&) {};
+  std::function<void(const BinOp&)> bin_op = [](const BinOp&) {};
+  std::function<void(const Variable&)> variable = [](const Variable&) {};
+  std::function<void(const Num&)> num = [](const Num&) {};
 };
 
-}
-
-template<typename NodeResultT>
 struct AstVisitorFn {
-  std::function<NodeResultT(const AstNode*, const CompoundStatement&, std::vector<NodeResultT>&&)> compound_statement_callback;
-  std::function<NodeResultT(const AstNode*, const StatementList&, std::vector<NodeResultT>&&)> statement_list_callback;
-  std::function<NodeResultT(const AstNode*, const AssignmentStatement&, NodeResultT&&, NodeResultT&&)>
-      assignment_statement_callback;
-  std::function<NodeResultT(const AstNode*)> empty_callback;
-  std::function<NodeResultT(const AstNode*, const UnaryOp&, NodeResultT&&)> unary_op_callback;
-  std::function<NodeResultT(const AstNode*, const BinOp&, NodeResultT&&, NodeResultT&&)>
-      bin_op_callback;
-  std::function<NodeResultT(const AstNode*, const Num&)> num_callback;
-  std::function<NodeResultT(const AstNode*, const Variable&)> variable_callback;
+  struct ExpressionVisitorFn {
+    const AstVisitorFn& self;
 
-  NodeResultT Visit(const AstNode* tree) {
-    assert(tree != nullptr);
+    void operator()(const BinOp& bin_op) const {
+      self.visit(bin_op);
+    }
 
-    struct VisitorWithResult {
-      AstVisitorFn& self;
-      const AstNode* ast_node;
+    void operator()(const UnaryOp& unary_op) const {
+      self.visit(unary_op);
+    }
 
-      NodeResultT operator()(const CompoundStatement& compound_statement) {
-        std::vector<NodeResultT> results;
-        for (const auto& child : compound_statement.statements.statements) {
-          results.push_back(self.Visit(child.get()));
-        }
-        return std::invoke(self.compound_statement_callback, ast_node, compound_statement, std::move(results));
-      }
+    void operator()(const Variable& variable) const {
+      self.visit(variable);
+    }
 
-      NodeResultT operator()(const StatementList& statement_list) {
-        std::vector<NodeResultT> results;
-        for (const auto& child : statement_list.statements) {
-          results.push_back(self.Visit(child.get()));
-        }
-        return std::invoke(self.statement_list_callback, ast_node, statement_list, std::move(results));
-      }
+    void operator()(const Num& num) const {
+      self.visit(num);
+    }
+  };
 
-      NodeResultT operator()(const AssignmentStatement& assignment_statement) {
-        auto variable_result = self.Visit(assignment_statement.variable.get());
-        auto expression_result = self.Visit(assignment_statement.expression.get());
-        return std::invoke(self.assignment_statement_callback,
-                           ast_node,
-                           assignment_statement,
-                           std::move(variable_result),
-                           std::move(expression_result));
-      }
+  struct StatementVisitorFn {
+    const AstVisitorFn& self;
 
-      NodeResultT operator()(const Empty&) {
-        return std::invoke(self.empty_callback, ast_node);
-      }
+    void operator()(const CompoundStatement& compound_statement) const {
+      self.visit(compound_statement);
+    }
 
-      NodeResultT operator()(const UnaryOp& unary_op) {
-        auto node_result = self.Visit(unary_op.node.get());
-        return std::invoke(self.unary_op_callback, ast_node, unary_op, std::move(node_result));
-      }
+    void operator()(const AssignmentStatement& assignment_statement) const {
+      self.visit(assignment_statement);
+    }
 
-      NodeResultT operator()(const BinOp& bin_op) {
-        auto left_result = self.Visit(bin_op.left.get());
-        auto right_result = self.Visit(bin_op.right.get());
-        return std::invoke(
-            self.bin_op_callback, ast_node, bin_op, std::move(left_result), std::move(right_result));
-      }
+    void operator()(const Empty&) const {}
+  };
 
-      NodeResultT operator()(const Num& num) {
-        return std::invoke(self.num_callback, ast_node, num);
-      }
+  AstVisitorCallbacks callbacks;
 
-      NodeResultT operator()(const Variable& variable) {
-        return std::invoke(self.variable_callback, ast_node, variable);
-      }
-    };
-
-    return std::visit(VisitorWithResult{*this, tree}, tree->value);
+  void visit(const Program& program) const {
+    visit(program.block);
+    std::invoke(callbacks.program, program);
   }
-};
 
-template<>
-struct AstVisitorFn<void> {
-  // TODO: void* should be ID.
-  std::function<void(const void*, const Program&)> program_callback;
-  std::function<void(const void*, const Block&)> block_callback;
-  std::function<void(const void*, const VarDecl&)> var_decl_callback;
-  std::function<void(const void*, const Type&)> type_callback;
-  std::function<void(const void*, const CompoundStatement&)> compound_statement_callback;
-  std::function<void(const void*, const StatementList&)> statement_list_callback;
-  std::function<void(const void*, const AssignmentStatement&)> assignment_statement_callback;
-  std::function<void(const void*)> empty_callback;
-  std::function<void(const void*, const UnaryOp&)> unary_op_callback;
-  std::function<void(const void*, const BinOp&)> bin_op_callback;
-  std::function<void(const void*, const Num&)> num_callback;
-  std::function<void(const void*, const Variable&)> variable_callback;
+  void visit(const Block& block) const {
+    for (const auto& var_decl : block.declarations) {
+      visit(var_decl);
+    }
+    visit(block.compound_statement);
+    std::invoke(callbacks.block, block);
+  }
 
-  // TODO: Change to const AstNode& tree
-  void Visit(const AstNode* tree) {
-    assert(tree != nullptr);
+  void visit(const VarDecl& var_decl) const {
+    std::invoke(callbacks.var_decl, var_decl);
+  }
 
-    struct VisitorVoid {
-      AstVisitorFn& self;
-      const AstNode* ast_node;
+  void visit(const CompoundStatement& compound_statement) const {
+    for (const auto& statement : compound_statement.statements) {
+      std::visit(StatementVisitorFn{*this}, statement);
+    }
+    std::invoke(callbacks.compound_statement, compound_statement);
+  }
 
-      void operator()(const Program& program) {
-        self.Visit((void*)&program)
-      }
+  void visit(const AssignmentStatement& assignment_statement) const {
+    visit(assignment_statement.variable);
+    std::visit(ExpressionVisitorFn{*this}, assignment_statement.expression);
+    std::invoke(callbacks.assignment_statement, assignment_statement);
+  }
 
-      void operator()(const CompoundStatement& compound_statement) {
-        for (const auto& child : compound_statement.statements.statements) {
-          self.Visit(child.get());
-        }
-        std::invoke(self.compound_statement_callback, ast_node, compound_statement);
-      }
+  void visit(const BinOp& bin_op) const {
+    std::visit(ExpressionVisitorFn{*this}, *bin_op.left);
+    std::visit(ExpressionVisitorFn{*this}, *bin_op.right);
+    std::invoke(callbacks.bin_op, bin_op);
+  }
 
-      void operator()(const StatementList& statement_list) {
-        for (const auto& child : statement_list.statements) {
-          self.Visit(child.get());
-        }
-        std::invoke(self.statement_list_callback, ast_node, statement_list);
-      }
+  void visit(const UnaryOp& unary_op) const {
+    std::visit(ExpressionVisitorFn{*this}, *unary_op.node);
+    std::invoke(callbacks.unary_op, unary_op);
+  }
 
-      void operator()(const AssignmentStatement& assignment_statement) {
-        self.Visit(assignment_statement.variable.get());
-        self.Visit(assignment_statement.expression.get());
-        std::invoke(self.assignment_statement_callback, ast_node, assignment_statement);
-      }
+  void visit(const Variable& variable) const {
+    std::invoke(callbacks.variable, variable);
+  }
 
-      void operator()(const Empty&) {
-        std::invoke(self.empty_callback, ast_node);
-      }
-
-      void operator()(const UnaryOp& unary_op) {
-        self.Visit(unary_op.node.get());
-        std::invoke(self.unary_op_callback, ast_node, unary_op);
-      }
-
-      void operator()(const BinOp& bin_op) {
-        self.Visit(bin_op.left.get());
-        self.Visit(bin_op.right.get());
-        std::invoke(self.bin_op_callback, ast_node, bin_op);
-      }
-
-      void operator()(const Num& num) { std::invoke(self.num_callback, ast_node, num); }
-
-      void operator()(const Variable& variable) {
-        std::invoke(self.variable_callback, ast_node, variable);
-      }
-    };
-
-    std::visit(VisitorVoid{*this, tree}, tree->value);
+  void visit(const Num& num) const {
+    std::invoke(callbacks.num, num);
   }
 };
 

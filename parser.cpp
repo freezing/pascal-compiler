@@ -3,20 +3,35 @@
 //
 
 #include "parser.h"
+#include "result.h"
 
 namespace freezing::interpreter {
 
-Parser::Parser(std::string&& text) : lexer_{std::move(text)} {}
+namespace detail {
 
-Result<AstNode> Parser::parse_program() {
+Result<Num> parse_integer_const(IdGenerator<NodeId>& node_id_generator, const std::string& value) {
+  // TODO: Handle exceptions.
+  return Num{node_id_generator.next(), std::stoi(value)};
+}
+
+Result<Num> parse_double_const(IdGenerator<NodeId>& node_id_generator, const std::string& value) {
+  // TODO: Handle exceptions.
+  return Num{node_id_generator.next(), std::stod(value)};
+}
+
+}
+
+Parser::Parser(std::string&& text) : lexer_{std::move(text)}, node_id_generator{} {}
+
+Result<Program> Parser::parse_program() {
   auto program_check = lexer_.advance(TokenType::PROGRAM);
   if (!program_check) {
     return forward_error(std::move(program_check));
   }
 
-  auto variable = lexer_.pop(TokenType::ID);
-  if (!variable) {
-    return forward_error(std::move(variable));
+  auto identifier = parse_identifier();
+  if (!identifier) {
+    return forward_error(std::move(identifier));
   }
 
   auto semi_check = lexer_.advance(TokenType::SEMICOLON);
@@ -33,7 +48,7 @@ Result<AstNode> Parser::parse_program() {
   if (!dot_check) {
     return forward_error(std::move(dot_check));
   }
-  return AstNode{Program{std::move(*variable->value), std::move(*block)}};
+  return Program{node_id_generator.next(), std::move(*identifier), std::move(*block)};
 }
 
 Result<Block> Parser::parse_block() {
@@ -47,7 +62,7 @@ Result<Block> Parser::parse_block() {
     return forward_error(std::move(compound_statement));
   }
 
-  return Block{std::move(*declarations), std::move(std::get<CompoundStatement>(compound_statement->value))};
+  return Block{node_id_generator.next(), std::move(*declarations), std::move(*compound_statement)};
 }
 
 Result<std::vector<VarDecl>> Parser::parse_declarations() {
@@ -80,13 +95,13 @@ Result<std::vector<VarDecl>> Parser::parse_declarations() {
 }
 
 Result<VarDecl> Parser::parse_variable_declaration() {
-  auto id = parse_variable();
-  if (!id) {
-    return forward_error(std::move(id));
+  auto variable = parse_variable();
+  if (!variable) {
+    return forward_error(std::move(variable));
   }
 
   std::vector<Variable> variables;
-  variables.push_back(std::move(*id));
+  variables.push_back(std::move(*variable));
 
   while (true) {
     auto next_token = lexer_.peek();
@@ -98,11 +113,11 @@ Result<VarDecl> Parser::parse_variable_declaration() {
     }
 
     lexer_.advance();
-    auto new_id = lexer_.pop(TokenType::ID);
-    if (!new_id) {
-      return forward_error(std::move(new_id));
+    auto new_variable = parse_variable();
+    if (!new_variable) {
+      return forward_error(std::move(new_variable));
     }
-    variables.push_back(Variable{std::move(*new_id)});
+    variables.push_back(std::move(*new_variable));
   }
 
   auto colon_check = lexer_.advance(TokenType::COLON);
@@ -114,10 +129,10 @@ Result<VarDecl> Parser::parse_variable_declaration() {
   if (!type_spec) {
     return forward_error(std::move(type_spec));
   }
-  return VarDecl{std::move(variables), std::move(*type_spec)};
+  return VarDecl{node_id_generator.next(), std::move(variables), *type_spec};
 }
 
-Result<Type> Parser::parse_type() {
+Result<TokenType> Parser::parse_type() {
   auto token = lexer_.pop();
   if (!token) {
     return forward_error(std::move(token));
@@ -125,10 +140,10 @@ Result<Type> Parser::parse_type() {
   if (token->token_type != TokenType::INTEGER && token->token_type != TokenType::REAL) {
     return make_error(fmt::format("Expected type 'INTEGER' or 'REAL', but got token: '{}'", *token));
   }
-  return Type{std::move(*token)};
+  return token->token_type;
 }
 
-Result<AstNode> Parser::parse_compound_statement() {
+Result<CompoundStatement> Parser::parse_compound_statement() {
   auto begin_check = lexer_.advance(TokenType::BEGIN);
   if (!begin_check) {
     return forward_error(std::move(begin_check));
@@ -143,18 +158,18 @@ Result<AstNode> Parser::parse_compound_statement() {
   if (!end_check) {
     return forward_error(std::move(end_check));
   }
-  return AstNode{CompoundStatement{std::move(std::get<StatementList>(statements->value))}};
+  return CompoundStatement{node_id_generator.next(), std::move(*statements)};
 }
 
-Result<AstNode> Parser::parse_statement_list() {
-  StatementList list{};
+Result<std::vector<Statement>> Parser::parse_statement_list() {
+  std::vector<Statement> statements{};
 
   {
     auto statement = parse_statement();
     if (!statement) {
       return forward_error(std::move(statement));
     }
-    list.statements.push_back(std::make_unique<AstNode>(std::move(*statement)));
+    statements.push_back((std::move(*statement)));
   }
 
   while (true) {
@@ -173,12 +188,12 @@ Result<AstNode> Parser::parse_statement_list() {
     if (!statement) {
       return forward_error(std::move(statement));
     }
-    list.statements.push_back(std::make_unique<AstNode>(std::move(*statement)));
+    statements.push_back(std::move(*statement));
   }
-  return AstNode{std::move(list)};
+  return statements;
 }
 
-Result<AstNode> Parser::parse_statement() {
+Result<Statement> Parser::parse_statement() {
   auto next_token = lexer_.peek();
   if (!next_token) {
     return forward_error(std::move(next_token));
@@ -193,7 +208,7 @@ Result<AstNode> Parser::parse_statement() {
   }
 }
 
-Result<AstNode> Parser::parse_assignment_statement() {
+Result<AssignmentStatement> Parser::parse_assignment_statement() {
   auto variable = parse_variable();
   if (!variable) {
     return forward_error(std::move(variable));
@@ -209,36 +224,39 @@ Result<AstNode> Parser::parse_assignment_statement() {
     return forward_error(std::move(expr));
   }
 
-  return AstNode{AssignmentStatement{std::make_unique<AstNode>(AstNode{std::move(*variable)}),
-                                     std::make_unique<AstNode>(std::move(*expr))}};
+  return AssignmentStatement{node_id_generator.next(), std::move(*variable), std::move(*expr)};
 }
 
-Result<Variable> Parser::parse_variable() {
-  auto token = lexer_.peek();
+Result<Identifier> Parser::parse_identifier() {
+  auto token = lexer_.pop(TokenType::ID);
   if (!token) {
     return forward_error(std::move(token));
   }
 
-  auto check_id = lexer_.advance(TokenType::ID);
-  if (!check_id) {
-    return forward_error(std::move(check_id));
-  }
-
   return std::move(token).map([](Token&& token) {
-    return Variable{std::move(token)};
+    return std::move(*token.value);
   });
 }
 
-AstNode Parser::parse_empty() {
-  return AstNode{Empty{}};
+Result<Variable> Parser::parse_variable() {
+  auto identifier = parse_identifier();
+  if (!identifier) {
+    return forward_error(std::move(identifier));
+  }
+
+  return Variable{node_id_generator.next(), std::move(*identifier)};
 }
 
-Result<AstNode> Parser::parse_expr() {
+Empty Parser::parse_empty() {
+  return Empty{};
+}
+
+Result<ExpressionNode> Parser::parse_expr() {
   auto first_term = parse_term();
   if (!first_term) {
     return forward_error(std::move(first_term));
   }
-  AstNode result = std::move(*first_term);
+  ExpressionNode result = std::move(*first_term);
 
   while (true) {
     auto op_token = lexer_.peek();
@@ -256,20 +274,21 @@ Result<AstNode> Parser::parse_expr() {
       return forward_error(std::move(right));
     }
 
-    result = AstNode{BinOp{*op_token,
-                           std::make_unique<AstNode>(std::move(result)),
-                           std::make_unique<AstNode>(std::move(*right))}};
+    result = BinOp{node_id_generator.next(),
+                   op_token->token_type,
+                   std::make_unique<ExpressionNode>(std::move(result)),
+                   std::make_unique<ExpressionNode>(std::move(*right))};
   }
   return result;
 }
 
-Result<AstNode> Parser::parse_term() {
+Result<ExpressionNode> Parser::parse_term() {
   auto first_factor = parse_factor();
   if (!first_factor) {
     return forward_error(std::move(first_factor));
   }
 
-  AstNode result = std::move(*first_factor);
+  ExpressionNode result = std::move(*first_factor);
 
   while (true) {
     auto op_token = lexer_.peek();
@@ -277,7 +296,8 @@ Result<AstNode> Parser::parse_term() {
       return forward_error(std::move(op_token));
     }
 
-    if (op_token->token_type != TokenType::MUL && op_token->token_type != TokenType::INTEGER_DIV && op_token->token_type != TokenType::REAL_DIV) {
+    if (op_token->token_type != TokenType::MUL && op_token->token_type != TokenType::INTEGER_DIV
+        && op_token->token_type != TokenType::REAL_DIV) {
       break;
     }
     lexer_.advance();
@@ -287,22 +307,24 @@ Result<AstNode> Parser::parse_term() {
       return forward_error(std::move(right));
     }
 
-    result = AstNode{BinOp{*op_token,
-                           std::make_unique<AstNode>(std::move(result)),
-                           std::make_unique<AstNode>(std::move(*right))}};
+    result = BinOp{node_id_generator.next(),
+                   op_token->token_type,
+                   std::make_unique<ExpressionNode>(std::move(result)),
+                   std::make_unique<ExpressionNode>(std::move(*right))};
   }
   return result;
 }
 
-Result<AstNode> Parser::parse_factor() {
+Result<ExpressionNode> Parser::parse_factor() {
   auto first_token = lexer_.peek();
   if (!first_token) {
     return forward_error(std::move(first_token));
   }
 
-  auto unary_op_handler = [this, &first_token](Token&& token) -> Result<AstNode> {
-    auto make_ast = [&first_token](AstNode&& factor) -> AstNode {
-      return AstNode{UnaryOp{std::move(*first_token), std::make_unique<AstNode>(std::move(factor))}};
+  auto unary_op_handler = [this, &first_token](Token&& token) -> Result<ExpressionNode> {
+    auto make_ast = [this, &first_token](ExpressionNode&& factor) -> ExpressionNode {
+      return UnaryOp{node_id_generator.next(), first_token->token_type,
+                     std::make_unique<ExpressionNode>(std::move(factor))};
     };
     return lexer_.advance(token.token_type)
         .and_then([this](auto&&) { return parse_factor(); })
@@ -349,19 +371,15 @@ Result<AstNode> Parser::parse_factor() {
     if (!integer_check) {
       return forward_error(std::move(integer_check));
     }
-    return AstNode{Num{*token}};
+    return detail::parse_integer_const(node_id_generator, *token->value);
   } else if (token->token_type == TokenType::REAL_CONST) {
     auto real_check = lexer_.advance(TokenType::REAL_CONST);
     if (!real_check) {
       return forward_error(std::move(real_check));
     }
-    return AstNode{Num{*token}};
+    return detail::parse_double_const(node_id_generator, *token->value);
   } else if (token->token_type == TokenType::ID) {
-    auto num_check = lexer_.advance(TokenType::ID);
-    if (!num_check) {
-      return forward_error(std::move(num_check));
-    }
-    return AstNode{Variable{*token}};
+    return parse_variable();
   } else {
     return make_error(fmt::format("Unexpected token {} found while trying to parse factor grammar.",
                                   token->token_type));

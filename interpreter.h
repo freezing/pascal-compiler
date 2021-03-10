@@ -24,7 +24,8 @@ static Result<int> Calculate(int left, TokenType token_type, int right) {
     return left + right;
   case TokenType::MUL:
     return left * right;
-  case TokenType::DIV:
+  case TokenType::INTEGER_DIV:
+  case TokenType::REAL_DIV:
     if (right == 0) {
       return make_error<std::string>("Invalid division by zero");
     }
@@ -39,6 +40,13 @@ static Result<int> Calculate(int left, TokenType token_type, int right) {
   case TokenType::ASSIGN:
   case TokenType::SEMICOLON:
   case TokenType::ID:
+  case TokenType::INTEGER_CONST:
+  case TokenType::REAL_CONST:
+  case TokenType::COLON:
+  case TokenType::PROGRAM:
+  case TokenType::VAR:
+  case TokenType::REAL:
+  case TokenType::COMMA:
     break;
   }
   assert(false);
@@ -54,7 +62,7 @@ static int UnaryCalculate(int result, TokenType token_type) {
   case TokenType::END_OF_FILE:
   case TokenType::INTEGER:
   case TokenType::MUL:
-  case TokenType::DIV:
+  case TokenType::INTEGER_DIV:
   case TokenType::OPEN_BRACKET:
   case TokenType::CLOSED_BRACKET:
   case TokenType::DOT:
@@ -63,6 +71,14 @@ static int UnaryCalculate(int result, TokenType token_type) {
   case TokenType::ASSIGN:
   case TokenType::SEMICOLON:
   case TokenType::ID:
+  case TokenType::INTEGER_CONST:
+  case TokenType::REAL_CONST:
+  case TokenType::COLON:
+  case TokenType::PROGRAM:
+  case TokenType::VAR:
+  case TokenType::REAL:
+  case TokenType::REAL_DIV:
+  case TokenType::COMMA:
     break;
   }
   assert(false);
@@ -118,7 +134,7 @@ public:
       if (!expr_state) {
         return forward_error(std::move(expr_state));
       }
-      const auto& variable = std::get<Variable>(assignment_statement.variable->value);
+      const auto& variable = std::get<Identifier>(assignment_statement.variable->value);
       return program_state.global_scope[*variable.token.value] = std::get<int>(*expr_state);
     };
 
@@ -155,7 +171,7 @@ public:
     };
 
     auto variable_callback =
-        [&program_state](const AstNode* node, const Variable& variable) -> Result<InterpreterState> {
+        [&program_state](const AstNode* node, const Identifier& variable) -> Result<InterpreterState> {
           const auto& var = *variable.token.value;
           auto it = program_state.global_scope.find(var);
           if (it == program_state.global_scope.end()) {

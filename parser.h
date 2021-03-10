@@ -7,6 +7,7 @@
 
 #include "lexer.h"
 #include "ast.h"
+#include "id_generator.h"
 
 namespace freezing::interpreter {
 
@@ -52,26 +53,26 @@ class Parser {
 public:
   explicit Parser(std::string&& text);
 
-  // TODO: Consider returning concrete type rather than AstNode.
-  // TODO: Consider having specific AstNode for each grammar entry.
-  Result<AstNode> parse_program();
+  Result<Program> parse_program();
   Result<Block> parse_block();
   Result<std::vector<VarDecl>> parse_declarations();
   Result<VarDecl> parse_variable_declaration();
-  Result<Type> parse_type();
-  Result<AstNode> parse_compound_statement();
-  Result<AstNode> parse_statement_list();
-  Result<AstNode> parse_statement();
-  Result<AstNode> parse_assignment_statement();
-  AstNode parse_empty();
-  Result<AstNode> parse_expr();
-  Result<AstNode> parse_term();
-  Result<AstNode> parse_factor();
-  // TODO: Rename Variable to Identifier.
+  // Either INTEGER or REAL.
+  Result<TokenType> parse_type();
+  Result<CompoundStatement> parse_compound_statement();
+  Result<std::vector<Statement>> parse_statement_list();
+  Result<Statement> parse_statement();
+  Result<AssignmentStatement> parse_assignment_statement();
+  Empty parse_empty();
+  Result<ExpressionNode> parse_expr();
+  Result<ExpressionNode> parse_term();
+  Result<ExpressionNode> parse_factor();
+  Result<Identifier> parse_identifier();
   Result<Variable> parse_variable();
 
 private:
   Lexer lexer_;
+  IdGenerator<NodeId> node_id_generator;
 };
 
 }

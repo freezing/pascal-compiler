@@ -10,93 +10,86 @@
 
 namespace freezing::interpreter {
 
+namespace detail {
+
+std::string format_node(NodeId node_id, const std::string& label) {
+  return fmt::format(
+      R"(  node{} [label="{}"]
+)",
+      node_id, label);
+}
+
+std::string format_node_edge(NodeId parent_id, NodeId child_id) {
+  return fmt::format(
+      R"(  node{} -> node{}
+)",
+      parent_id,
+      child_id);
+}
+
+struct NodeIdExtractorFn {
+  template<typename T>
+  NodeId operator()(const T& node) const {
+    return node.id;
+  }
+};
+
+}
+
 class AstDotVisualiser {
 public:
-  explicit AstDotVisualiser(const AstNode* tree) : tree_{tree} {}
+  explicit AstDotVisualiser() {}
 
-  std::string generate() {
+  std::string generate(const Program& program) {
     std::string body{};
 
-    auto compound_statement_callback =
-        [&body](const AstNode* node, const CompoundStatement& compound_statement) -> void {
-          body += fmt::format(
-              R"(  node{} [label="{}"]
-)",
-              reinterpret_cast<const int64_t>(node),
-              "CompoundStatement");
-          for (const auto& statement : compound_statement.statements.statements) {
-            body += node_edge(node, statement.get());
-          }
-        };
+    AstVisitorCallbacks callbacks{};
 
-    auto statement_list_callback = [&body](const AstNode* node, const StatementList& statement_list) -> void {
-      body += fmt::format(
-          R"(  node{} [label="{}"]
-)",
-          reinterpret_cast<const int64_t>(node),
-          "StatementList");
-      for (const auto& statement : statement_list.statements) {
-        body += node_edge(node, statement.get());
+    callbacks.program = [&body](const Program& program) {
+      body += detail::format_node(program.id, fmt::format("Program({})", program.name));
+      body += detail::format_node_edge(program.id, program.block.id);
+    };
+    callbacks.block = [&body](const Block& block) {
+      body += detail::format_node(block.id, fmt::format("Block"));
+      for (const auto& decl : block.declarations) {
+        body += detail::format_node_edge(block.id, decl.id);
+      }
+      body += detail::format_node_edge(block.id, block.compound_statement.id);
+    };
+    callbacks.var_decl = [&body](const VarDecl& var_decl) {
+      body += detail::format_node(var_decl.id, fmt::format("VarDecl(type={})", var_decl.type_specification));
+      for (const auto& variable : var_decl.variables) {
+        body += detail::format_node_edge(var_decl.id, variable.id);
       }
     };
-
-    auto assignment_statement_callback =
-        [&body](const AstNode* node, const AssignmentStatement& assignment_statement) -> void {
-          body += fmt::format(
-              R"(  node{} [label="{}"]
-)",
-              reinterpret_cast<const int64_t>(node),
-              "Assignment");
-          body += node_edge(node, assignment_statement.variable.get());
-          body += node_edge(node, assignment_statement.expression.get());
-        };
-
-    auto empty_callback = [&body](const AstNode* node) -> void {
-      body += fmt::format(
-          R"(  node{} [label="{}"]
-)",
-          reinterpret_cast<const int64_t>(node),
-          "Empty");
+    callbacks.compound_statement = [&body](const CompoundStatement& compound_statement) {
+      body += detail::format_node(compound_statement.id, "CompoundStatement");
+      for (const auto& statement : compound_statement.statements) {
+        body += detail::format_node_edge(compound_statement.id, std::visit(detail::NodeIdExtractorFn{}, statement));
+      }
+    };
+    callbacks.assignment_statement = [&body](const AssignmentStatement& assignment_statement) {
+      body += detail::format_node(assignment_statement.id, ":=");
+      body += detail::format_node_edge(assignment_statement.id, assignment_statement.variable.id);
+      body += detail::format_node_edge(assignment_statement.id, std::visit(detail::NodeIdExtractorFn{}, assignment_statement.expression));
+    };
+    callbacks.unary_op = [&body](const UnaryOp& unary_op) {
+      body += detail::format_node(unary_op.id, fmt::format("Unary({})", unary_op.op_type));
+      body += detail::format_node_edge(unary_op.id, std::visit(detail::NodeIdExtractorFn{}, *unary_op.node));
+    };
+    callbacks.bin_op = [&body](const BinOp& bin_op) {
+      body += detail::format_node(bin_op.id, fmt::format("Binary({})", bin_op.op_type));
+      body += detail::format_node_edge(bin_op.id, std::visit(detail::NodeIdExtractorFn{}, *bin_op.left));
+      body += detail::format_node_edge(bin_op.id, std::visit(detail::NodeIdExtractorFn{}, *bin_op.right));
+    };
+    callbacks.variable = [&body](const Variable& variable) {
+      body += detail::format_node(variable.id, fmt::format("Variable({})", variable.name));
+    };
+    callbacks.num = [&body](const Num& num) {
+      body += detail::format_node(num.id, fmt::format("Num({})", num.value));
     };
 
-    auto unary_op_callback = [&body](const AstNode* node, const UnaryOp& unary_op) -> void {
-      body += fmt::format(
-          R"(  node{} [label="{}"]
-)",
-          reinterpret_cast<const int64_t>(node),
-          unary_op.op);
-      body += node_edge(node, unary_op.node.get());
-    };
-
-    auto bin_op_callback = [&body](const AstNode* node, const BinOp& bin_op) -> void {
-      body += fmt::format(
-          R"(  node{} [label="{}"]
-)",
-          reinterpret_cast<const int64_t>(node),
-          bin_op.op);
-      body += node_edge(node, bin_op.left.get());
-      body += node_edge(node, bin_op.right.get());
-    };
-
-    auto num_callback = [&body](const AstNode* node, const Num& num) -> void {
-      body += fmt::format(
-          R"(  node{} [label="{}"]
-)",
-          reinterpret_cast<const int64_t>(node),
-          num.token);
-    };
-
-    auto variable_callback = [&body](const AstNode* node, const Variable& variable) -> void {
-      body += fmt::format(
-          R"(  node{} [label="{}"]
-)",
-          reinterpret_cast<const int64_t>(node),
-          variable.token);
-    };
-
-    AstVisitorFn<void>{compound_statement_callback, statement_list_callback, assignment_statement_callback,
-                       empty_callback, unary_op_callback, bin_op_callback, num_callback, variable_callback}
-        .Visit(tree_);
+    AstVisitorFn{callbacks}.visit(program);
 
     const std::string header =
         R"(digraph astgraph {
@@ -106,18 +99,6 @@ public:
 )";
     const std::string footer = "}";
     return header + body + footer;
-  }
-
-private:
-  const AstNode* tree_;
-
-  static std::string node_edge(const AstNode* parent, const AstNode* child) {
-    assert(parent != nullptr && child != nullptr);
-    return fmt::format(
-        R"(  node{} -> node{}
-)",
-        reinterpret_cast<const int64_t>(parent),
-        reinterpret_cast<const int64_t>(child));
   }
 };
 
