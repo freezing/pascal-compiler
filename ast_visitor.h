@@ -10,6 +10,21 @@
 
 namespace freezing::interpreter {
 
+struct NodeIdExtractorFn {
+  template<typename T>
+  NodeId operator()(const T& node) const {
+    return node.id;
+  }
+};
+
+static NodeId node_id(const Statement& statement) {
+  return std::visit(NodeIdExtractorFn{}, statement);
+}
+
+static NodeId node_id(const ExpressionNode& expression) {
+  return std::visit(NodeIdExtractorFn{}, expression);
+}
+
 struct AstVisitorCallbacks {
   std::function<void(const Program&)> program = [](const Program&) {};
   std::function<void(const Block&)> block = [](const Block&) {};

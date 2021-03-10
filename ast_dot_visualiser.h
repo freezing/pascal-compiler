@@ -27,13 +27,6 @@ std::string format_node_edge(NodeId parent_id, NodeId child_id) {
       child_id);
 }
 
-struct NodeIdExtractorFn {
-  template<typename T>
-  NodeId operator()(const T& node) const {
-    return node.id;
-  }
-};
-
 }
 
 class AstDotVisualiser {
@@ -65,23 +58,23 @@ public:
     callbacks.compound_statement = [&body](const CompoundStatement& compound_statement) {
       body += detail::format_node(compound_statement.id, "CompoundStatement");
       for (const auto& statement : compound_statement.statements) {
-        body += detail::format_node_edge(compound_statement.id, std::visit(detail::NodeIdExtractorFn{}, statement));
+        body += detail::format_node_edge(compound_statement.id, std::visit(NodeIdExtractorFn{}, statement));
       }
     };
     callbacks.assignment_statement = [&body](const AssignmentStatement& assignment_statement) {
       body += detail::format_node(assignment_statement.id, ":=");
       body += detail::format_node_edge(assignment_statement.id, assignment_statement.variable.id);
       body += detail::format_node_edge(assignment_statement.id,
-                                       std::visit(detail::NodeIdExtractorFn{}, assignment_statement.expression));
+                                       std::visit(NodeIdExtractorFn{}, assignment_statement.expression));
     };
     callbacks.unary_op = [&body](const UnaryOp& unary_op) {
       body += detail::format_node(unary_op.id, fmt::format("Unary({})", unary_op.op_type));
-      body += detail::format_node_edge(unary_op.id, std::visit(detail::NodeIdExtractorFn{}, *unary_op.node));
+      body += detail::format_node_edge(unary_op.id, std::visit(NodeIdExtractorFn{}, *unary_op.node));
     };
     callbacks.bin_op = [&body](const BinOp& bin_op) {
       body += detail::format_node(bin_op.id, fmt::format("Binary({})", bin_op.op_type));
-      body += detail::format_node_edge(bin_op.id, std::visit(detail::NodeIdExtractorFn{}, *bin_op.left));
-      body += detail::format_node_edge(bin_op.id, std::visit(detail::NodeIdExtractorFn{}, *bin_op.right));
+      body += detail::format_node_edge(bin_op.id, std::visit(NodeIdExtractorFn{}, *bin_op.left));
+      body += detail::format_node_edge(bin_op.id, std::visit(NodeIdExtractorFn{}, *bin_op.right));
     };
     callbacks.variable = [&body](const Variable& variable) {
       body += detail::format_node(variable.id, fmt::format("Variable({})", variable.name));

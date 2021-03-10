@@ -16,6 +16,7 @@
 namespace freezing::interpreter {
 
 namespace detail {
+
 static Result<int> Calculate(int left, TokenType token_type, int right) {
   switch (token_type) {
   case TokenType::MINUS:
@@ -84,116 +85,72 @@ static int UnaryCalculate(int result, TokenType token_type) {
   assert(false);
   return -1;
 }
+
+struct NumTypeAsDoubleExtractorFn {
+  template<typename T>
+  double operator()(const T& number) const {
+    return number;
+  }
+};
+
 }
 
 struct ProgramState {
   std::map<std::string, int> global_scope;
+  std::map<NodeId, int> expression_evaluations;
+  std::vector<std::string> errors;
 };
 
 class Interpreter {
 public:
   Result<ProgramState> run(std::string&& text) {
-    auto tree = Parser{std::move(text)}.parse_program();
-    if (!tree) {
-      return forward_error(std::move(tree));
+    auto program = Parser{std::move(text)}.parse_program();
+    if (!program) {
+      return forward_error(std::move(program));
     }
 
     ProgramState program_state;
 
-    using InterpreterState = std::variant<std::monostate, int>;
+    AstVisitorCallbacks callbacks{};
 
-    auto compound_statement_callback = [&program_state](const AstNode* node,
-                                                        const CompoundStatement& compound_statement,
-                                                        std::vector<Result<InterpreterState>>&& states) -> Result<
-        InterpreterState> {
-      for (auto& result : states) {
-        if (!result) {
-          return forward_error(std::move(result));
-        }
+    callbacks.program = [](const Program& program) {};
+    callbacks.block = [](const Block& block) {};
+    callbacks.var_decl = [&program_state](const VarDecl& var_decl) {
+      // TODO: Implement.
+    };
+    callbacks.compound_statement = [](const CompoundStatement& compound_statement) {};
+    callbacks.assignment_statement = [&program_state](const AssignmentStatement& assignment_statement) {
+      program_state.global_scope[assignment_statement.variable.name] = program_state.expression_evaluations[node_id(assignment_statement.expression)];
+    };
+    callbacks.unary_op = [&program_state](const UnaryOp& unary_op) {
+      int expression_value = program_state.expression_evaluations[node_id(*unary_op.node)];
+      program_state.expression_evaluations[unary_op.id] = detail::UnaryCalculate(expression_value, unary_op.op_type);
+    };
+    callbacks.bin_op = [&program_state](const BinOp& bin_op) {
+      auto left = program_state.expression_evaluations[node_id(*bin_op.left)];
+      auto right = program_state.expression_evaluations[node_id(*bin_op.right)];
+      auto result = detail::Calculate(left, bin_op.op_type, right);
+      if (!result) {
+        program_state.errors.push_back(std::move(result).error());
+      } else {
+        program_state.expression_evaluations[bin_op.id] = *result;
       }
-      return {};
     };
-
-    auto statement_list_callback = [&program_state](const AstNode* node,
-                                                    const StatementList& statement_list,
-                                                    std::vector<Result<InterpreterState>>&& states) -> Result<
-        InterpreterState> {
-      for (auto& result : states) {
-        if (!result) {
-          return forward_error(std::move(result));
-        }
+    callbacks.variable = [&program_state](const Variable& variable) {
+      auto it = program_state.global_scope.find(variable.name);
+      if (it == program_state.global_scope.end()) {
+        program_state.errors.push_back(fmt::format("Unknown value for variable: '{}'", variable.name));
+        return;
       }
-      return {};
+      program_state.expression_evaluations[variable.id] = it->second;
     };
-
-    auto assignment_statement_callback = [&program_state](const AstNode* node,
-                                                          const AssignmentStatement& assignment_statement,
-                                                          Result<InterpreterState>&& eval_var,
-                                                          Result<InterpreterState>&& expr_state) -> Result<
-        InterpreterState> {
-      if (!expr_state) {
-        return forward_error(std::move(expr_state));
-      }
-      const auto& variable = std::get<Identifier>(assignment_statement.variable->value);
-      return program_state.global_scope[*variable.token.value] = std::get<int>(*expr_state);
+    callbacks.num = [&program_state](const Num& num) {
+      // TODO: Handle float vs int.
+      program_state.expression_evaluations[num.id] = std::visit(detail::NumTypeAsDoubleExtractorFn{}, num.value);
     };
+    callbacks.empty = [](const Empty& empty) {};
 
-    auto empty_callback = [](const AstNode*) -> Result<InterpreterState> {
-      return {};
-    };
-
-    auto num_callback = [](const AstNode* node, const Num& num) -> Result<InterpreterState> {
-      return std::stoi(*num.token.value);
-    };
-
-    auto unary_op_callback =
-        [](const AstNode* node, const UnaryOp& unary_op, Result<InterpreterState>&& state) -> Result<InterpreterState> {
-          if (!state) {
-            return forward_error(std::move(state));
-          }
-          int value = std::get<int>(*state);
-          return detail::UnaryCalculate(value, unary_op.op.token_type);
-        };
-
-    auto bin_op_callback = [](const AstNode* node,
-                              const BinOp& bin_op,
-                              Result<InterpreterState>&& left,
-                              Result<InterpreterState>&& right) -> Result<InterpreterState> {
-      if (!left) {
-        return forward_error(std::move(left));
-      }
-      if (!right) {
-        return forward_error(std::move(right));
-      }
-      int left_value = std::get<int>(*left);
-      int right_value = std::get<int>(*right);
-      return detail::Calculate(left_value, bin_op.op.token_type, right_value);
-    };
-
-    auto variable_callback =
-        [&program_state](const AstNode* node, const Identifier& variable) -> Result<InterpreterState> {
-          const auto& var = *variable.token.value;
-          auto it = program_state.global_scope.find(var);
-          if (it == program_state.global_scope.end()) {
-            return make_error(fmt::format("Unknown variable: '{}'", *variable.token.value));
-          }
-          return it->second;
-        };
-
-    auto node_result = AstVisitorFn<Result<InterpreterState>>{
-        compound_statement_callback,
-        statement_list_callback,
-        assignment_statement_callback,
-        empty_callback,
-        unary_op_callback,
-        bin_op_callback,
-        num_callback,
-        variable_callback
-    }.Visit(&tree.value());
-
-    if (!node_result) {
-      return forward_error(std::move(node_result));
-    }
+    AstVisitorFn{callbacks}.visit(*program);
     return program_state;
   }
 };
