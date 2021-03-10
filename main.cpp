@@ -27,6 +27,11 @@ int run_interpreter(std::string&& pascal_program) {
     for (const auto& entry : result->global_scope) {
       std::cout << fmt::format("  {} = {}", entry.first, entry.second) << std::endl;
     }
+
+    std::cout << std::endl << "Errors: " << std::endl;
+    for (const auto& error : result->errors) {
+      std::cout << error << std::endl;
+    }
   }
   return 0;
 }
@@ -39,9 +44,9 @@ VAR
    y    : REAL;
 
 BEGIN {Part10AST}
-   {a := 2;}
+   a := 2;
    b := 10 * a + 10 * a DIV 4;
-   y := 20 / 7 + 3.14;
+   y := 20 / 7 + 3.14; 
 END.  {Part10AST}
 )";
 //  return visualise_ast(std::move(pascal_program));
