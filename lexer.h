@@ -35,6 +35,7 @@ private:
   char peek_char() const;
   char next_char();
   void skip_whitespaces();
+  void skip_until_comment_close();
   Result<Token> parse_token();
 };
 

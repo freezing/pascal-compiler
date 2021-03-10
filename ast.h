@@ -49,7 +49,32 @@ struct CompoundStatement {
   StatementList statements;
 };
 
-using NodeValueT = std::variant<CompoundStatement,
+// TODO: Rename to TypeSpecification.
+struct Type {
+  // Either INTEGER or REAL.
+  Token token;
+};
+
+struct VarDecl {
+  std::vector<Variable> variables;
+  Type type;
+};
+
+struct Block {
+  std::vector<VarDecl> declarations;
+  CompoundStatement compound_statement;
+};
+
+struct Program {
+  std::string name;
+  Block block;
+};
+
+using NodeValueT = std::variant<Program,
+                                Block,
+                                VarDecl,
+                                Type,
+                                CompoundStatement,
                                 StatementList,
                                 AssignmentStatement,
                                 Empty,

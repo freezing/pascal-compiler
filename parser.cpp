@@ -9,15 +9,123 @@ namespace freezing::interpreter {
 Parser::Parser(std::string&& text) : lexer_{std::move(text)} {}
 
 Result<AstNode> Parser::parse_program() {
-  auto compound_statement = parse_compound_statement();
-  if (!compound_statement) {
-    return forward_error(std::move(compound_statement));
+  auto program_check = lexer_.advance(TokenType::PROGRAM);
+  if (!program_check) {
+    return forward_error(std::move(program_check));
   }
+
+  auto variable = lexer_.pop(TokenType::ID);
+  if (!variable) {
+    return forward_error(std::move(variable));
+  }
+
+  auto semi_check = lexer_.advance(TokenType::SEMICOLON);
+  if (!semi_check) {
+    return forward_error(std::move(semi_check));
+  }
+
+  auto block = parse_block();
+  if (!block) {
+    return forward_error(std::move(block));
+  }
+
   auto dot_check = lexer_.advance(TokenType::DOT);
   if (!dot_check) {
     return forward_error(std::move(dot_check));
   }
-  return compound_statement;
+  return AstNode{Program{std::move(*variable->value), std::move(*block)}};
+}
+
+Result<Block> Parser::parse_block() {
+  auto declarations = parse_declarations();
+  if (!declarations) {
+    return forward_error(std::move(declarations));
+  }
+
+  auto compound_statement = parse_compound_statement();
+  if (!compound_statement) {
+    return forward_error(std::move(compound_statement));
+  }
+
+  return Block{std::move(*declarations), std::move(std::get<CompoundStatement>(compound_statement->value))};
+}
+
+Result<std::vector<VarDecl>> Parser::parse_declarations() {
+  auto var_check = lexer_.advance(TokenType::VAR);
+  if (!var_check) {
+    return forward_error(std::move(var_check));
+  }
+  std::vector<VarDecl> declarations;
+  while (true) {
+    auto variable_declaration = parse_variable_declaration();
+    if (!variable_declaration) {
+      return forward_error(std::move(variable_declaration));
+    }
+    auto semi_check = lexer_.advance(TokenType::SEMICOLON);
+    if (!semi_check) {
+      return forward_error(std::move(semi_check));
+    }
+
+    declarations.push_back(std::move(*variable_declaration));
+
+    const auto& next_token = lexer_.peek();
+    if (!next_token) {
+      return forward_error(lexer_.pop());
+    }
+    if (next_token->token_type != TokenType::ID) {
+      break;
+    }
+  }
+  return declarations;
+}
+
+Result<VarDecl> Parser::parse_variable_declaration() {
+  auto id = parse_variable();
+  if (!id) {
+    return forward_error(std::move(id));
+  }
+
+  std::vector<Variable> variables;
+  variables.push_back(std::move(*id));
+
+  while (true) {
+    auto next_token = lexer_.peek();
+    if (!next_token) {
+      return forward_error(std::move(next_token));
+    }
+    if (next_token->token_type != TokenType::COMMA) {
+      break;
+    }
+
+    lexer_.advance();
+    auto new_id = lexer_.pop(TokenType::ID);
+    if (!new_id) {
+      return forward_error(std::move(new_id));
+    }
+    variables.push_back(Variable{std::move(*new_id)});
+  }
+
+  auto colon_check = lexer_.advance(TokenType::COLON);
+  if (!colon_check) {
+    return forward_error(std::move(colon_check));
+  }
+
+  auto type_spec = parse_type();
+  if (!type_spec) {
+    return forward_error(std::move(type_spec));
+  }
+  return VarDecl{std::move(variables), std::move(*type_spec)};
+}
+
+Result<Type> Parser::parse_type() {
+  auto token = lexer_.pop();
+  if (!token) {
+    return forward_error(std::move(token));
+  }
+  if (token->token_type != TokenType::INTEGER && token->token_type != TokenType::REAL) {
+    return make_error(fmt::format("Expected type 'INTEGER' or 'REAL', but got token: '{}'", *token));
+  }
+  return Type{std::move(*token)};
 }
 
 Result<AstNode> Parser::parse_compound_statement() {
@@ -169,7 +277,7 @@ Result<AstNode> Parser::parse_term() {
       return forward_error(std::move(op_token));
     }
 
-    if (op_token->token_type != TokenType::MUL && op_token->token_type != TokenType::DIV) {
+    if (op_token->token_type != TokenType::MUL && op_token->token_type != TokenType::INTEGER_DIV && op_token->token_type != TokenType::REAL_DIV) {
       break;
     }
     lexer_.advance();
@@ -233,12 +341,19 @@ Result<AstNode> Parser::parse_factor() {
     return forward_error(std::move(token));
   }
 
-  // INTEGER
+  // INTEGER_CONST
+  // REAL_CONST
   // ID
-  if (token->token_type == TokenType::INTEGER) {
-    auto integer_check = lexer_.advance(TokenType::INTEGER);
+  if (token->token_type == TokenType::INTEGER_CONST) {
+    auto integer_check = lexer_.advance(TokenType::INTEGER_CONST);
     if (!integer_check) {
       return forward_error(std::move(integer_check));
+    }
+    return AstNode{Num{*token}};
+  } else if (token->token_type == TokenType::REAL_CONST) {
+    auto real_check = lexer_.advance(TokenType::REAL_CONST);
+    if (!real_check) {
+      return forward_error(std::move(real_check));
     }
     return AstNode{Num{*token}};
   } else if (token->token_type == TokenType::ID) {

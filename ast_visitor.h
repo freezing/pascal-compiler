@@ -95,14 +95,19 @@ struct AstVisitorFn {
 
 template<>
 struct AstVisitorFn<void> {
-  std::function<void(const AstNode*, const CompoundStatement&)> compound_statement_callback;
-  std::function<void(const AstNode*, const StatementList&)> statement_list_callback;
-  std::function<void(const AstNode*, const AssignmentStatement&)> assignment_statement_callback;
-  std::function<void(const AstNode*)> empty_callback;
-  std::function<void(const AstNode*, const UnaryOp&)> unary_op_callback;
-  std::function<void(const AstNode*, const BinOp&)> bin_op_callback;
-  std::function<void(const AstNode*, const Num&)> num_callback;
-  std::function<void(const AstNode*, const Variable&)> variable_callback;
+  // TODO: void* should be ID.
+  std::function<void(const void*, const Program&)> program_callback;
+  std::function<void(const void*, const Block&)> block_callback;
+  std::function<void(const void*, const VarDecl&)> var_decl_callback;
+  std::function<void(const void*, const Type&)> type_callback;
+  std::function<void(const void*, const CompoundStatement&)> compound_statement_callback;
+  std::function<void(const void*, const StatementList&)> statement_list_callback;
+  std::function<void(const void*, const AssignmentStatement&)> assignment_statement_callback;
+  std::function<void(const void*)> empty_callback;
+  std::function<void(const void*, const UnaryOp&)> unary_op_callback;
+  std::function<void(const void*, const BinOp&)> bin_op_callback;
+  std::function<void(const void*, const Num&)> num_callback;
+  std::function<void(const void*, const Variable&)> variable_callback;
 
   // TODO: Change to const AstNode& tree
   void Visit(const AstNode* tree) {
@@ -111,6 +116,10 @@ struct AstVisitorFn<void> {
     struct VisitorVoid {
       AstVisitorFn& self;
       const AstNode* ast_node;
+
+      void operator()(const Program& program) {
+        self.Visit((void*)&program)
+      }
 
       void operator()(const CompoundStatement& compound_statement) {
         for (const auto& child : compound_statement.statements.statements) {

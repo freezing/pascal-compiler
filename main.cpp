@@ -33,16 +33,17 @@ int run_interpreter(std::string&& pascal_program) {
 
 int main() {
   std::string pascal_program = R"(
-    BEGIN
-      BEGIN
-        number := 2;
-        a := number;
-        b := 10 * a + 10 * number / 4;
-        c := a - - b
-      END;
-      x := 11;
-    END.
+PROGRAM Part10AST;
+VAR
+   a, b : INTEGER;
+   y    : REAL;
+
+BEGIN {Part10AST}
+   a := 2;
+   b := 10 * a + 10 * a DIV 4;
+   y := 20 / 7 + 3.14;
+END.  {Part10AST}
 )";
-//  return visualise_ast(std::move(pascal_program));
-  return run_interpreter(std::move(pascal_program));
+  return visualise_ast(std::move(pascal_program));
+//  return run_interpreter(std::move(pascal_program));
 }

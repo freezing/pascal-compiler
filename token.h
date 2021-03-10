@@ -14,20 +14,28 @@
 namespace freezing::interpreter {
 
 enum class TokenType {
-  END_OF_FILE = 0,
-  INTEGER = 1,
-  PLUS = 2,
-  MINUS = 3,
-  MUL = 4,
-  DIV = 5,
-  OPEN_BRACKET = 6,
-  CLOSED_BRACKET = 7,
-  DOT = 8,
-  BEGIN = 9,
-  END = 10,
-  ASSIGN = 11,
-  SEMICOLON = 12,
-  ID = 13,
+  END_OF_FILE,
+  INTEGER_CONST,
+  REAL_CONST,
+  PLUS,
+  MINUS,
+  MUL,
+  INTEGER_DIV,
+  OPEN_BRACKET,
+  CLOSED_BRACKET,
+  DOT,
+  BEGIN,
+  END,
+  ASSIGN,
+  COLON,
+  SEMICOLON,
+  ID,
+  PROGRAM,
+  VAR,
+  REAL,
+  INTEGER,
+  REAL_DIV,
+  COMMA,
 };
 
 inline std::ostream& operator<<(std::ostream& os, const TokenType& token_type) {
@@ -36,8 +44,8 @@ inline std::ostream& operator<<(std::ostream& os, const TokenType& token_type) {
   case TokenType::END_OF_FILE:
     type_string = "END_OF_FILE";
     break;
-  case TokenType::INTEGER:
-    type_string = "INTEGER";
+  case TokenType::INTEGER_CONST:
+    type_string = "INTEGER_CONST";
     break;
   case TokenType::PLUS:
     type_string = "PLUS";
@@ -48,8 +56,8 @@ inline std::ostream& operator<<(std::ostream& os, const TokenType& token_type) {
   case TokenType::MUL:
     type_string = "MUL";
     break;
-  case TokenType::DIV:
-    type_string = "DIV";
+  case TokenType::INTEGER_DIV:
+    type_string = "INTEGER_DIV";
     break;
   case TokenType::OPEN_BRACKET:
     type_string = "OPEN_BRACKET";
@@ -74,6 +82,30 @@ inline std::ostream& operator<<(std::ostream& os, const TokenType& token_type) {
     break;
   case TokenType::ID:
     type_string = "ID";
+    break;
+  case TokenType::PROGRAM:
+    type_string = "PROGRAM";
+    break;
+  case TokenType::VAR:
+    type_string = "VAR";
+    break;
+  case TokenType::REAL:
+    type_string = "REAL";
+    break;
+  case TokenType::REAL_DIV:
+    type_string = "REAL_DIV";
+    break;
+  case TokenType::REAL_CONST:
+    type_string = "REAL_CONST";
+    break;
+  case TokenType::INTEGER:
+    type_string = "INTEGER";
+    break;
+  case TokenType::COMMA:
+    type_string = "COMMA";
+    break;
+  case TokenType::COLON:
+    type_string = "COLON";
     break;
   }
   return os << type_string;
