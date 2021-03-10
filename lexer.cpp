@@ -61,7 +61,6 @@ char Lexer::peek_char() const {
   return text_[pos_];
 }
 char Lexer::next_char() {
-  assert(!isspace(text_[pos_]));
   return text_[pos_++];
 }
 void Lexer::skip_whitespaces() {
