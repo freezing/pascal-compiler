@@ -28,7 +28,8 @@ static NodeId node_id(const ExpressionNode& expression) {
 struct AstVisitorCallbacks {
   std::function<void(const Program&)> program = [](const Program&) {};
   std::function<void(const Block&)> block = [](const Block&) {};
-  std::function<void(const VarDecl&)> var_decl = [](const VarDecl&) {};
+  std::function<void(const VarDecl&)> var_decl_pre = [](const VarDecl&) {};
+  std::function<void(const VarDecl&)> var_decl_post = [](const VarDecl&) {};
   std::function<void(const CompoundStatement&)> compound_statement = [](const CompoundStatement&) {};
   std::function<void(const AssignmentStatement&)> assignment_statement = [](const AssignmentStatement&) {};
   std::function<void(const UnaryOp&)> unary_op = [](const UnaryOp&) {};
@@ -91,10 +92,11 @@ struct AstVisitorFn {
   }
 
   void visit(const VarDecl& var_decl) const {
+    std::invoke(callbacks.var_decl_pre, var_decl);
     for (const auto& variable : var_decl.variables) {
       visit(variable);
     }
-    std::invoke(callbacks.var_decl, var_decl);
+    std::invoke(callbacks.var_decl_post, var_decl);
   }
 
   void visit(const CompoundStatement& compound_statement) const {

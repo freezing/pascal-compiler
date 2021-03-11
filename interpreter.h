@@ -112,9 +112,70 @@ static void add_error_if_variable(std::vector<std::string>& errors, const Expres
 
 }
 
+enum class SymbolType {
+  TYPE_SPECIFICATION,
+  VARIABLE,
+};
+
+using Symbol = std::variant<SymbolType>;
+
+inline std::ostream& operator<<(std::ostream& os, const SymbolType& symbol_type) {
+  switch (symbol_type) {
+  case SymbolType::VARIABLE:
+    return os << "VARIABLE";
+  case SymbolType::TYPE_SPECIFICATION:
+    return os << "TYPE_SPECIFICATION";
+  }
+  return os << "UNKNOWN";
+}
+
+struct SymbolPrinterFn {
+  std::ostream& os;
+
+  std::ostream& operator()(const SymbolType& symbol_type) {
+    return os << symbol_type;
+  }
+};
+
+inline std::ostream& operator<<(std::ostream& os, const Symbol& symbol) {
+  return std::visit(SymbolPrinterFn{os}, symbol);
+}
+
+class SymbolTable {
+public:
+  SymbolTable() {
+    symbols[fmt::format("{}", TokenType::INTEGER)] = SymbolType::TYPE_SPECIFICATION;
+    symbols[fmt::format("{}", TokenType::REAL)] = SymbolType::TYPE_SPECIFICATION;
+  }
+
+  Result<Void> define(const std::string& symbol_name, Symbol&& symbol) {
+    auto pair = symbols.insert({symbol_name, std::move(symbol)});
+    if (!pair.second) {
+      return make_error(fmt::format("Symbol '{}' is already defined.", symbol_name));
+    }
+    return {};
+  }
+
+  std::optional<Symbol> find(const std::string& symbol_name) const {
+    auto it = symbols.find(symbol_name);
+    if (it == symbols.end()) {
+      return {};
+    }
+    return it->second;
+  }
+
+  const std::map<std::string, Symbol>& data() {
+    return symbols;
+  }
+
+private:
+  std::map<std::string, Symbol> symbols;
+};
+
 struct ProgramState {
   std::map<std::string, int> global_scope;
   std::map<NodeId, int> expression_evaluations;
+  SymbolTable symbol_table;
   std::vector<std::string> errors;
 };
 
@@ -128,13 +189,17 @@ public:
 
     ProgramState program_state;
 
+    Result<SymbolTable, std::vector<std::string>> symbol_table = semantic_analysis(*program);
+    if (!symbol_table) {
+      program_state.errors.insert(program_state.errors.end(), symbol_table.error().begin(), symbol_table.error().end());
+      return program_state;
+    }
+    program_state.symbol_table = std::move(*symbol_table);
+
     AstVisitorCallbacks callbacks{};
 
     callbacks.program = [](const Program& program) {};
     callbacks.block = [](const Block& block) {};
-    callbacks.var_decl = [&program_state](const VarDecl& var_decl) {
-      // TODO: Implement.
-    };
     callbacks.compound_statement = [](const CompoundStatement& compound_statement) {};
     callbacks.assignment_statement = [&program_state](const AssignmentStatement& assignment_statement) {
       auto expr_eval_it = program_state.expression_evaluations.find(node_id(assignment_statement.expression));
@@ -187,8 +252,60 @@ public:
         .erase(std::unique(program_state.errors.begin(), program_state.errors.end()), program_state.errors.end());
     return program_state;
   }
+
+  Result<SymbolTable, std::vector<std::string>> semantic_analysis(const Program& program) const {
+    SymbolTable symbol_table;
+    std::vector<std::string> errors;
+
+    AstVisitorCallbacks callbacks{};
+
+    callbacks.var_decl_pre = [&symbol_table, &errors](const VarDecl& var_decl) {
+      auto type_symbol = symbol_table.find(fmt::format("{}", var_decl.type_specification));
+      if (!type_symbol) {
+        errors.push_back(fmt::format("Unknown type symbol: '{}'", var_decl.type_specification));
+      }
+      std::vector<Identifier> already_defined_symbols;
+      for (const auto& variable_symbol : var_decl.variables) {
+        auto existing_symbol = symbol_table.find(variable_symbol.name);
+        if (existing_symbol) {
+          already_defined_symbols.push_back(variable_symbol.name);
+        }
+        symbol_table.define(variable_symbol.name, SymbolType::VARIABLE);
+      }
+      if (!already_defined_symbols.empty()) {
+        std::string error = "[";
+        std::string sep;
+        for (const auto& s : already_defined_symbols) {
+          error += sep + s;
+          sep = ", ";
+        }
+        error += "]";
+        errors.push_back(fmt::format("Already defined symbols: {}", error));
+      }
+    };
+
+    callbacks.variable = [&symbol_table, &errors](const Variable& variable) {
+      auto symbol = symbol_table.find(variable.name);
+      if (!symbol) {
+        errors.push_back(fmt::format("Undefined symbol: {}", variable.name));
+      }
+    };
+
+    AstVisitorFn{callbacks}.visit(program);
+
+    if (errors.empty()) {
+      return symbol_table;
+    } else {
+      return make_error(std::move(errors));
+    }
+  }
 };
 
 }
+
+template<>
+struct fmt::formatter<freezing::interpreter::Symbol>
+    : freezing::interpreter::StringStreamFormatter<freezing::interpreter::Symbol> {
+};
 
 #endif //PASCAL_COMPILER_TUTORIAL__INTERPRETER_H

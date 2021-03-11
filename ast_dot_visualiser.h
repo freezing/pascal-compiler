@@ -49,7 +49,7 @@ public:
       }
       body += detail::format_node_edge(block.id, block.compound_statement.id);
     };
-    callbacks.var_decl = [&body](const VarDecl& var_decl) {
+    callbacks.var_decl_post = [&body](const VarDecl& var_decl) {
       body += detail::format_node(var_decl.id, fmt::format("VarDecl(type={})", var_decl.type_specification));
       for (const auto& variable : var_decl.variables) {
         body += detail::format_node_edge(var_decl.id, variable.id);
