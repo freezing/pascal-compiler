@@ -36,6 +36,7 @@ enum class TokenType {
   INTEGER,
   REAL_DIV,
   COMMA,
+  PROCEDURE,
 };
 
 inline std::ostream& operator<<(std::ostream& os, const TokenType& token_type) {
@@ -106,6 +107,9 @@ inline std::ostream& operator<<(std::ostream& os, const TokenType& token_type) {
     break;
   case TokenType::COLON:
     type_string = "COLON";
+    break;
+  case TokenType::PROCEDURE:
+    type_string = "PROCEDURE";
     break;
   }
   return os << type_string;

@@ -44,8 +44,11 @@ public:
     };
     callbacks.block = [&body](const Block& block) {
       body += detail::format_node(block.id, fmt::format("Block"));
-      for (const auto& decl : block.declarations) {
+      for (const auto& decl : block.variable_declarations) {
         body += detail::format_node_edge(block.id, decl.id);
+      }
+      for (const auto& proc_decl : block.procedure_declarations) {
+        body += detail::format_node_edge(block.id, proc_decl.id);
       }
       body += detail::format_node_edge(block.id, block.compound_statement.id);
     };
@@ -54,6 +57,10 @@ public:
       for (const auto& variable : var_decl.variables) {
         body += detail::format_node_edge(var_decl.id, variable.id);
       }
+    };
+    callbacks.procedure_decl_post = [&body](const ProcedureDecl& procedure_decl) {
+      body += detail::format_node(procedure_decl.id, fmt::format("ProcedureDecl({})", procedure_decl.name));
+      body += detail::format_node_edge(procedure_decl.id, procedure_decl.block.id);
     };
     callbacks.compound_statement = [&body](const CompoundStatement& compound_statement) {
       body += detail::format_node(compound_statement.id, "CompoundStatement");

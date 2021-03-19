@@ -52,9 +52,33 @@ Result<Program> Parser::parse_program() {
 }
 
 Result<Block> Parser::parse_block() {
-  auto declarations = parse_declarations();
-  if (!declarations) {
-    return forward_error(std::move(declarations));
+  std::vector<VarDecl> variable_declarations;
+  std::vector<ProcedureDecl> procedure_declarations;
+
+  auto current_token = lexer_.peek();
+  if (!current_token) {
+    return forward_error(std::move(current_token));
+  }
+
+  if (current_token->token_type == TokenType::VAR) {
+    auto variable_declarations_result = parse_variable_declarations();
+    if (!variable_declarations_result) {
+      return forward_error(std::move(variable_declarations_result));
+    }
+    variable_declarations = std::move(*variable_declarations_result);
+  }
+
+  current_token = lexer_.peek();
+  if (!current_token) {
+    return forward_error(std::move(current_token));
+  }
+
+  if (current_token->token_type == TokenType::PROCEDURE) {
+    auto procedure_declarations_result = parse_procedure_declarations();
+    if (!procedure_declarations_result) {
+      return forward_error(std::move(procedure_declarations_result));
+    }
+    procedure_declarations = std::move(*procedure_declarations_result);
   }
 
   auto compound_statement = parse_compound_statement();
@@ -62,10 +86,11 @@ Result<Block> Parser::parse_block() {
     return forward_error(std::move(compound_statement));
   }
 
-  return Block{node_id_generator.next(), std::move(*declarations), std::move(*compound_statement)};
+  return Block{node_id_generator.next(), std::move(variable_declarations), std::move(procedure_declarations),
+               std::move(*compound_statement)};
 }
 
-Result<std::vector<VarDecl>> Parser::parse_declarations() {
+Result<std::vector<VarDecl>> Parser::parse_variable_declarations() {
   auto var_check = lexer_.advance(TokenType::VAR);
   if (!var_check) {
     return forward_error(std::move(var_check));
@@ -130,6 +155,46 @@ Result<VarDecl> Parser::parse_variable_declaration() {
     return forward_error(std::move(type_spec));
   }
   return VarDecl{node_id_generator.next(), std::move(variables), *type_spec};
+}
+
+Result<std::vector<ProcedureDecl>> Parser::parse_procedure_declarations() {
+  auto current_token = lexer_.peek();
+  if (!current_token) {
+    return forward_error(std::move(current_token));
+  }
+
+  std::vector<ProcedureDecl> procedure_declarations;
+  while (current_token->token_type == TokenType::PROCEDURE) {
+    lexer_.advance();
+
+    auto name = parse_identifier();
+    if (!name) {
+      return forward_error(std::move(name));
+    }
+
+    auto semi_check = lexer_.advance(TokenType::SEMICOLON);
+    if (!semi_check) {
+      return forward_error(std::move(semi_check));
+    }
+
+    auto block = parse_block();
+    if (!block) {
+      return forward_error(std::move(block));
+    }
+
+    auto final_semi_check = lexer_.advance(TokenType::SEMICOLON);
+    if (!final_semi_check) {
+      return forward_error(std::move(final_semi_check));
+    }
+
+    procedure_declarations.push_back(ProcedureDecl{node_id_generator.next(), std::move(*name), std::move(*block)});
+
+    current_token = lexer_.peek();
+    if (!current_token) {
+      return forward_error(std::move(current_token));
+    }
+  }
+  return procedure_declarations;
 }
 
 Result<TokenType> Parser::parse_type() {

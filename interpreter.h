@@ -48,6 +48,7 @@ static Result<int> Calculate(int left, TokenType token_type, int right) {
   case TokenType::VAR:
   case TokenType::REAL:
   case TokenType::COMMA:
+  case TokenType::PROCEDURE:
     break;
   }
   assert(false);
@@ -80,6 +81,7 @@ static int UnaryCalculate(int result, TokenType token_type) {
   case TokenType::REAL:
   case TokenType::REAL_DIV:
   case TokenType::COMMA:
+  case TokenType::PROCEDURE:
     break;
   }
   assert(false);

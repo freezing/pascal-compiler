@@ -15,6 +15,7 @@ const std::map<std::string, Token>
     {"REAL", Token{TokenType::REAL, "REAL"}},
     {"BEGIN", Token{TokenType::BEGIN, "BEGIN"}},
     {"END", Token{TokenType::END, "END"}},
+    {"PROCEDURE", Token{TokenType::PROCEDURE}},
 };
 
 Lexer::Lexer(std::string&& text) : text_{std::move(text)}, pos_{0} {

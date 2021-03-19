@@ -30,6 +30,8 @@ struct AstVisitorCallbacks {
   std::function<void(const Block&)> block = [](const Block&) {};
   std::function<void(const VarDecl&)> var_decl_pre = [](const VarDecl&) {};
   std::function<void(const VarDecl&)> var_decl_post = [](const VarDecl&) {};
+  std::function<void(const ProcedureDecl&)> procedure_decl_pre = [](const ProcedureDecl&) {};
+  std::function<void(const ProcedureDecl&)> procedure_decl_post = [](const ProcedureDecl&) {};
   std::function<void(const CompoundStatement&)> compound_statement = [](const CompoundStatement&) {};
   std::function<void(const AssignmentStatement&)> assignment_statement = [](const AssignmentStatement&) {};
   std::function<void(const UnaryOp&)> unary_op = [](const UnaryOp&) {};
@@ -84,8 +86,11 @@ struct AstVisitorFn {
   }
 
   void visit(const Block& block) const {
-    for (const auto& var_decl : block.declarations) {
+    for (const auto& var_decl : block.variable_declarations) {
       visit(var_decl);
+    }
+    for (const auto& procedure_decl : block.procedure_declarations) {
+      visit(procedure_decl);
     }
     visit(block.compound_statement);
     std::invoke(callbacks.block, block);
@@ -97,6 +102,12 @@ struct AstVisitorFn {
       visit(variable);
     }
     std::invoke(callbacks.var_decl_post, var_decl);
+  }
+
+  void visit(const ProcedureDecl& procedure_decl) const {
+    std::invoke(callbacks.procedure_decl_pre, procedure_decl);
+    visit(procedure_decl.block);
+    std::invoke(callbacks.procedure_decl_post, procedure_decl);
   }
 
   void visit(const CompoundStatement& compound_statement) const {

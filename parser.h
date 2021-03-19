@@ -15,10 +15,12 @@ namespace freezing::interpreter {
 //
 //    program : PROGRAM variable SEMI block DOT
 //
-//    block : declarations compound_statement
+//    block : variable_declarations procedure_declarations compound_statement
 //
-//    declarations : VAR (variable_declaration SEMI)+
+//    variable_declarations : VAR (variable_declaration SEMI)+
 //                 | empty
+//
+//    procedure_declarations: (PROCEDURE ID SEMI block SEMI)*
 //
 //    variable_declaration : ID (COMMA ID)* COLON type_spec
 //
@@ -55,8 +57,9 @@ public:
 
   Result<Program> parse_program();
   Result<Block> parse_block();
-  Result<std::vector<VarDecl>> parse_declarations();
+  Result<std::vector<VarDecl>> parse_variable_declarations();
   Result<VarDecl> parse_variable_declaration();
+  Result<std::vector<ProcedureDecl>> parse_procedure_declarations();
   // Either INTEGER or REAL.
   Result<TokenType> parse_type();
   Result<CompoundStatement> parse_compound_statement();

@@ -19,6 +19,8 @@ struct UnaryOp;
 struct Variable;
 struct Num;
 struct Empty;
+struct VarDecl;
+struct ProcedureDecl;
 
 // Includes expression, factor and term nodes.
 using Identifier = std::string;
@@ -76,8 +78,15 @@ struct VarDecl {
 
 struct Block {
   NodeId id;
-  std::vector<VarDecl> declarations;
+  std::vector<VarDecl> variable_declarations;
+  std::vector<ProcedureDecl> procedure_declarations;
   CompoundStatement compound_statement;
+};
+
+struct ProcedureDecl {
+  NodeId id;
+  std::string name;
+  Block block;
 };
 
 struct Program {
