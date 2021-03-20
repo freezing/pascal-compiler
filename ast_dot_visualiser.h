@@ -60,7 +60,13 @@ public:
     };
     callbacks.procedure_decl_post = [&body](const ProcedureDecl& procedure_decl) {
       body += detail::format_node(procedure_decl.id, fmt::format("ProcedureDecl({})", procedure_decl.name));
+      for (const auto& param : procedure_decl.parameters) {
+        body += detail::format_node_edge(procedure_decl.id, param.id);
+      }
       body += detail::format_node_edge(procedure_decl.id, procedure_decl.block.id);
+    };
+    callbacks.param = [&body](const Param& param) {
+      body += detail::format_node(param.id, fmt::format("Param({}: {})", param.identifier, param.type_specification));
     };
     callbacks.compound_statement = [&body](const CompoundStatement& compound_statement) {
       body += detail::format_node(compound_statement.id, "CompoundStatement");

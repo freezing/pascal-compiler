@@ -52,7 +52,7 @@ VAR
    b : REAL;
    k : INTEGER;
 
-   PROCEDURE P2;
+   PROCEDURE P2(c, d: INTEGER; e, f, g: REAL);
    VAR
       c, z : INTEGER;
    BEGIN {P2}
@@ -67,6 +67,6 @@ BEGIN {Part12}
    a := 10;
 END.  {Part12}
 )";
-//  return visualise_ast(std::move(pascal_program));
-  return run_interpreter(std::move(pascal_program));
+  return visualise_ast(std::move(pascal_program));
+//  return run_interpreter(std::move(pascal_program));
 }

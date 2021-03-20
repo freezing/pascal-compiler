@@ -165,29 +165,12 @@ Result<std::vector<ProcedureDecl>> Parser::parse_procedure_declarations() {
 
   std::vector<ProcedureDecl> procedure_declarations;
   while (current_token->token_type == TokenType::PROCEDURE) {
-    lexer_.advance();
-
-    auto name = parse_identifier();
-    if (!name) {
-      return forward_error(std::move(name));
+    auto procedure_declaration = parse_procedure_declaration();
+    if (!procedure_declaration) {
+      return forward_error(std::move(procedure_declaration));
     }
 
-    auto semi_check = lexer_.advance(TokenType::SEMICOLON);
-    if (!semi_check) {
-      return forward_error(std::move(semi_check));
-    }
-
-    auto block = parse_block();
-    if (!block) {
-      return forward_error(std::move(block));
-    }
-
-    auto final_semi_check = lexer_.advance(TokenType::SEMICOLON);
-    if (!final_semi_check) {
-      return forward_error(std::move(final_semi_check));
-    }
-
-    procedure_declarations.push_back(ProcedureDecl{node_id_generator.next(), std::move(*name), std::move(*block)});
+    procedure_declarations.push_back(std::move(*procedure_declaration));
 
     current_token = lexer_.peek();
     if (!current_token) {
@@ -195,6 +178,124 @@ Result<std::vector<ProcedureDecl>> Parser::parse_procedure_declarations() {
     }
   }
   return procedure_declarations;
+}
+
+Result<ProcedureDecl> Parser::parse_procedure_declaration() {
+  auto procedure_check = lexer_.advance(TokenType::PROCEDURE);
+  if (!procedure_check) {
+    return forward_error(std::move(procedure_check));
+  }
+
+  auto name = parse_identifier();
+  if (!name) {
+    return forward_error(std::move(name));
+  }
+
+  // (LPAREN formal_parameter_list RPAREN)?
+  auto current_token = lexer_.peek();
+  if (!current_token) {
+    return forward_error(std::move(current_token));
+  }
+
+  std::vector<Param> params;
+  if (current_token->token_type == TokenType::OPEN_BRACKET) {
+    lexer_.advance();
+    auto params_result = parse_formal_parameter_list();
+    if (!params_result) {
+      return forward_error(std::move(params_result));
+    }
+    params = std::move(*params_result);
+    auto check_right_paren = lexer_.advance(TokenType::CLOSED_BRACKET);
+    if (!check_right_paren) {
+      return forward_error(std::move(check_right_paren));
+    }
+  }
+
+  auto semi_check = lexer_.advance(TokenType::SEMICOLON);
+  if (!semi_check) {
+    return forward_error(std::move(semi_check));
+  }
+
+  auto block = parse_block();
+  if (!block) {
+    return forward_error(std::move(block));
+  }
+
+  auto final_semi_check = lexer_.advance(TokenType::SEMICOLON);
+  if (!final_semi_check) {
+    return forward_error(std::move(final_semi_check));
+  }
+  return ProcedureDecl{node_id_generator.next(), std::move(*name), std::move(params), std::move(*block)};
+}
+
+Result<std::vector<Param>> Parser::parse_formal_parameter_list() {
+  auto formal_parameters = parse_formal_parameters();
+  if (!formal_parameters) {
+    return forward_error(std::move(formal_parameters));
+  }
+  auto current_token = lexer_.peek();
+  if (!current_token) {
+    return forward_error(std::move(current_token));
+  }
+
+  std::vector<Param> parameters = std::move(*formal_parameters);
+
+  if (current_token->token_type == TokenType::SEMICOLON) {
+    lexer_.advance();
+    auto list = parse_formal_parameter_list();
+    if (!list) {
+      return forward_error(std::move(list));
+    }
+    for (auto& param : *list) {
+      parameters.push_back(std::move(param));
+    }
+  }
+
+  return std::move(parameters);
+}
+
+Result<std::vector<Param>> Parser::parse_formal_parameters() {
+  auto id = parse_identifier();
+  if (!id) {
+    return forward_error(std::move(id));
+  }
+  std::vector<Identifier> identifiers;
+  identifiers.push_back(std::move(*id));
+
+  auto current_token = lexer_.peek();
+  if (!current_token) {
+    return forward_error(std::move(current_token));
+  }
+
+  while (current_token->token_type == TokenType::COMMA) {
+    lexer_.advance();
+    id = parse_identifier();
+    if (!id) {
+      return forward_error(std::move(id));
+    }
+    identifiers.push_back(std::move(*id));
+
+    current_token = lexer_.peek();
+    if (!current_token) {
+      return forward_error(std::move(current_token));
+    }
+  }
+
+  auto colon_check = lexer_.advance(TokenType::COLON);
+  if (!colon_check) {
+    return forward_error(std::move(colon_check));
+  }
+
+  auto type = parse_type();
+  if (!type) {
+    return forward_error(std::move(type));
+  }
+
+  std::vector<Param> params;
+  for (auto& identifier : identifiers) {
+    params.push_back(Param{node_id_generator.next(), std::move(identifier), std::move(*type)});
+  }
+  return params;
 }
 
 Result<TokenType> Parser::parse_type() {

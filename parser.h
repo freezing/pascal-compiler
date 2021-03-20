@@ -18,9 +18,14 @@ namespace freezing::interpreter {
 //    block : variable_declarations procedure_declarations compound_statement
 //
 //    variable_declarations : VAR (variable_declaration SEMI)+
-//                 | empty
+//                          | empty
 //
-//    procedure_declarations: (PROCEDURE ID SEMI block SEMI)*
+//    procedure_declarations: (PROCEDURE ID (LPAREN formal_parameter_list RPAREN)? SEMI block SEMI)*
+//
+//    formal_parameter_list : formal_parameters
+//                          | formal_parameters SEMI formal_parameter_list
+//
+//    formal_parameters : ID (COMMA ID)* COLON type_spec
 //
 //    variable_declaration : ID (COMMA ID)* COLON type_spec
 //
@@ -60,6 +65,9 @@ public:
   Result<std::vector<VarDecl>> parse_variable_declarations();
   Result<VarDecl> parse_variable_declaration();
   Result<std::vector<ProcedureDecl>> parse_procedure_declarations();
+  Result<ProcedureDecl> parse_procedure_declaration();
+  Result<std::vector<Param>> parse_formal_parameter_list();
+  Result<std::vector<Param>> parse_formal_parameters();
   // Either INTEGER or REAL.
   Result<TokenType> parse_type();
   Result<CompoundStatement> parse_compound_statement();

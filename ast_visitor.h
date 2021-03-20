@@ -32,6 +32,7 @@ struct AstVisitorCallbacks {
   std::function<void(const VarDecl&)> var_decl_post = [](const VarDecl&) {};
   std::function<void(const ProcedureDecl&)> procedure_decl_pre = [](const ProcedureDecl&) {};
   std::function<void(const ProcedureDecl&)> procedure_decl_post = [](const ProcedureDecl&) {};
+  std::function<void(const Param&)> param = [](const Param&) {};
   std::function<void(const CompoundStatement&)> compound_statement = [](const CompoundStatement&) {};
   std::function<void(const AssignmentStatement&)> assignment_statement = [](const AssignmentStatement&) {};
   std::function<void(const UnaryOp&)> unary_op = [](const UnaryOp&) {};
@@ -106,8 +107,15 @@ struct AstVisitorFn {
 
   void visit(const ProcedureDecl& procedure_decl) const {
     std::invoke(callbacks.procedure_decl_pre, procedure_decl);
+    for (const auto& param : procedure_decl.parameters) {
+      visit(param);
+    }
     visit(procedure_decl.block);
     std::invoke(callbacks.procedure_decl_post, procedure_decl);
+  }
+
+  void visit(const Param& param) const {
+    std::invoke(callbacks.param, param);
   }
 
   void visit(const CompoundStatement& compound_statement) const {

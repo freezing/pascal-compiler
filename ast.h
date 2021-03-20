@@ -76,6 +76,13 @@ struct VarDecl {
   TokenType type_specification;
 };
 
+struct Param {
+  NodeId id;
+  Identifier identifier;
+  // EITHER INTEGER or REAL.
+  TokenType type_specification;
+};
+
 struct Block {
   NodeId id;
   std::vector<VarDecl> variable_declarations;
@@ -86,6 +93,7 @@ struct Block {
 struct ProcedureDecl {
   NodeId id;
   std::string name;
+  std::vector<Param> parameters;
   Block block;
 };
 

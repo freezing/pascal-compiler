@@ -21,6 +21,7 @@ enum class TokenType {
   MINUS,
   MUL,
   INTEGER_DIV,
+  // TODO: Rename to LPAREN and RPAREN
   OPEN_BRACKET,
   CLOSED_BRACKET,
   DOT,
