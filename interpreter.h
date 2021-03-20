@@ -26,7 +26,6 @@ struct ProgramState {
 class Interpreter {
 public:
   Result<ProgramState> run(std::string&& text);
-  Result<SymbolTable, std::vector<std::string>> semantic_analysis(const Program& program) const;
 };
 
 }

@@ -49,12 +49,12 @@ VAR
 
 PROCEDURE P1;
 VAR
-   a : REAL;
+   b : REAL;
    k : INTEGER;
 
    PROCEDURE P2;
    VAR
-      a, z : INTEGER;
+      c, z : INTEGER;
    BEGIN {P2}
       z := 777;
    END;  {P2}
