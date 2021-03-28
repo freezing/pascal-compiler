@@ -17,5 +17,5 @@ download_project(PROJ fmt
         )
 add_subdirectory(${fmt_SOURCE_DIR} ${fmt_BINARY_DIR})
 
-add_executable(pascal_compiler_tutorial main.cpp lexer.h lexer.cpp token.h result.h optional_formatter.h parser.h parser.cpp ast.h stringstream_formatter.h ast_dot_visualiser.h ast_visitor.h container_algo.h id_generator.h interpreter.h interpreter.cpp symbol_table.h symbol_table.cpp semantic_analyser.h semantic_analyser.cc)
+add_executable(pascal_compiler_tutorial main.cpp lexer.h lexer.cpp token.h result.h optional_formatter.h parser.h parser.cpp ast.h stringstream_formatter.h ast_dot_visualiser.h ast_visitor.h container_algo.h id_generator.h interpreter.h interpreter.cpp symbol_table.h symbol_table.cpp semantic_analyser.h semantic_analyser.cc memory.h memory.cpp)
 target_link_libraries(pascal_compiler_tutorial expected fmt)
