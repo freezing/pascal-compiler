@@ -13,7 +13,7 @@ namespace freezing::interpreter {
 
 // Parser that implements the following grammar:
 //
-//    program : PROGRAM variable SEMI block DOT
+//    program_post : PROGRAM variable SEMI block DOT
 //
 //    block : variable_declarations procedure_declarations compound_statement
 //

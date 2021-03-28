@@ -17,9 +17,11 @@
 namespace freezing::interpreter {
 
 struct ProgramState {
+  // TODO: Should be renamed to GlobalMemory, and there should be a data-structure that can resolve
+  // a symbol to a memory location.
   std::map<std::string, int> global_scope;
   std::map<NodeId, int> expression_evaluations;
-  SymbolTable symbol_table;
+  std::map<std::string, SymbolTable> symbol_tables;
   std::vector<std::string> errors;
 };
 

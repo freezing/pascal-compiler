@@ -26,7 +26,8 @@ static NodeId node_id(const ExpressionNode& expression) {
 }
 
 struct AstVisitorCallbacks {
-  std::function<void(const Program&)> program = [](const Program&) {};
+  std::function<void(const Program&)> program_pre = [](const Program&) {};
+  std::function<void(const Program&)> program_post = [](const Program&) {};
   std::function<void(const Block&)> block = [](const Block&) {};
   std::function<void(const VarDecl&)> var_decl_pre = [](const VarDecl&) {};
   std::function<void(const VarDecl&)> var_decl_post = [](const VarDecl&) {};
@@ -82,8 +83,9 @@ struct AstVisitorFn {
   AstVisitorCallbacks callbacks;
 
   void visit(const Program& program) const {
+    std::invoke(callbacks.program_pre, program);
     visit(program.block);
-    std::invoke(callbacks.program, program);
+    std::invoke(callbacks.program_post, program);
   }
 
   void visit(const Block& block) const {

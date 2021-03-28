@@ -21,16 +21,17 @@ int visualise_ast(std::string&& pascal_program) {
 int run_interpreter(std::string&& pascal_program) {
   auto result = Interpreter{}.run(std::move(pascal_program));
   if (!result) {
-    std::cout << fmt::format("Failed to interpret program. Error: {}", result.error()) << std::endl;
+    std::cout << fmt::format("Failed to interpret program_post. Error: {}", result.error()) << std::endl;
   } else {
     std::cout << "Global scope: " << std::endl;
     for (const auto& entry : result->global_scope) {
       std::cout << fmt::format("  {} = {}", entry.first, entry.second) << std::endl;
     }
 
-    std::cout << std::endl << "Symbol table: " << std::endl;
-    for (const auto& entry : result->symbol_table.data()) {
-      std::cout << fmt::format("  {} = {}", entry.first, entry.second) << std::endl;
+    std::cout << std::endl;
+
+    for (const auto& [name, symbol_table] : result->symbol_tables) {
+      std::cout << symbol_table << std::endl;
     }
 
     std::cout << std::endl << "Errors: " << std::endl;
@@ -67,6 +68,6 @@ BEGIN {Part12}
    a := 10;
 END.  {Part12}
 )";
-  return visualise_ast(std::move(pascal_program));
-//  return run_interpreter(std::move(pascal_program));
+//  return visualise_ast(std::move(pascal_program));
+  return run_interpreter(std::move(pascal_program));
 }

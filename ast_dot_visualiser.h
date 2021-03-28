@@ -38,7 +38,7 @@ public:
 
     AstVisitorCallbacks callbacks{};
 
-    callbacks.program = [&body](const Program& program) {
+    callbacks.program_post = [&body](const Program& program) {
       body += detail::format_node(program.id, fmt::format("Program({})", program.name));
       body += detail::format_node_edge(program.id, program.block.id);
     };

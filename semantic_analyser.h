@@ -12,7 +12,7 @@ namespace freezing::interpreter {
 
 class SemanticAnalyser {
 public:
-  Result<SymbolTable, std::vector<std::string>> analyse(const Program& program) const;
+  Result<std::map<std::string, SymbolTable>, std::vector<std::string>> analyse(const Program& program) const;
 };
 
 }

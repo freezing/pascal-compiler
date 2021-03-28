@@ -114,16 +114,16 @@ Result<ProgramState> Interpreter::run(std::string&& text) {
 
   ProgramState program_state;
 
-  Result<SymbolTable, std::vector<std::string>> symbol_table = SemanticAnalyser{}.analyse(*program);
-  if (!symbol_table) {
-    program_state.errors.insert(program_state.errors.end(), symbol_table.error().begin(), symbol_table.error().end());
+  auto symbol_tables = SemanticAnalyser{}.analyse(*program);
+  if (!symbol_tables) {
+    program_state.errors.insert(program_state.errors.end(), symbol_tables.error().begin(), symbol_tables.error().end());
     return program_state;
   }
-  program_state.symbol_table = std::move(*symbol_table);
+  program_state.symbol_tables = std::move(*symbol_tables);
 
   AstVisitorCallbacks callbacks{};
 
-  callbacks.program = [](const Program& program) {};
+  callbacks.program_post = [](const Program& program) {};
   callbacks.block = [](const Block& block) {};
   callbacks.compound_statement = [](const CompoundStatement& compound_statement) {};
   callbacks.assignment_statement = [&program_state](const AssignmentStatement& assignment_statement) {
