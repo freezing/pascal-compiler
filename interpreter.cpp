@@ -158,14 +158,6 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
       program_state.expression_evaluations[bin_op.id] = *result;
     }
   };
-  callbacks.variable = [&program_state](const Variable& variable) {
-    // TODO: Why is it required to store this in the variable callback?
-    auto value = program_state.memory.try_read(variable.name);
-    if (!value) {
-      return;
-    }
-    program_state.expression_evaluations[variable.id] = *value;
-  };
   callbacks.num = [&program_state](const Num& num) {
     // TODO: Handle float vs int.
     program_state.expression_evaluations[num.id] = std::visit(detail::NumTypeAsDoubleExtractorFn{}, num.value);
