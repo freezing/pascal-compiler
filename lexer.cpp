@@ -44,9 +44,10 @@ LexerResult<Void> Lexer::advance(TokenType token_type) {
     return advance();
   }
   // TODO: It's technically a parser error.
-  return make_error(LexerError{current_location_, fmt::format("Expected token type: {}, but got: {}",
+  return make_error(LexerError{current_location_, fmt::format("Expected token type: {}, but got: {}\n{}",
                                                               token_type,
-                                                              current_token_.token_type)});
+                                                              current_token_.token_type,
+                                                              mark_text(text_, current_location_))});
 }
 
 LexerResult<Void> Lexer::advance() {
@@ -159,6 +160,32 @@ LexerResult<Token> Lexer::parse_token() {
 
 CharLocation Lexer::token_location() const {
   return current_location_;
+}
+std::string Lexer::mark_text(const std::string& text, CharLocation location) {
+  std::stringstream ss;
+
+  int line_number = 0;
+  int col_number = 0;
+  for (int i = 0; i < text.size(); i++) {
+    if (abs(location.line_number - line_number) <= 2) {
+      ss << text[i];
+    }
+
+    col_number++;
+    if (text[i] == '\n') {
+      line_number++;
+      col_number = 0;
+
+      // This will ignore the errors on the last line, but that's okay.
+      if (line_number == location.line_number + 1) {
+        for (int j = 0; j < location.column_number - 1; j++) {
+          ss << "-";
+        }
+        ss << "^" << std::endl;
+      }
+    }
+  }
+  return ss.str();
 }
 
 }

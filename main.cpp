@@ -67,8 +67,8 @@ END;  {P1}
 
 BEGIN {Part12}
    a := 10;
-   P1(a + 10, a * a, 33.5 + 22);
-END.  {Part12}
+   {P1(a + 10, a * a, 33.5 + 22);}
+END  {Part12}
 )";
 //  return visualise_ast(std::move(pascal_program));
   return run_interpreter(std::move(pascal_program));

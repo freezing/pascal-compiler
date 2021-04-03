@@ -57,6 +57,9 @@ private:
   void skip_whitespaces();
   void skip_until_comment_close();
   LexerResult<Token> parse_token();
+
+  // Returns a debug string to print around the given location.
+  static std::string mark_text(const std::string& text, CharLocation location);
 };
 
 }
