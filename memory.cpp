@@ -6,16 +6,16 @@
 
 namespace freezing::interpreter {
 
-int Memory::read(const std::string& address) const {
+DataType Memory::read(const std::string& address) const {
   auto it = memory_.find(address);
   assert(it != memory_.end());
   return it->second;
 }
 
-void Memory::set(const std::string& address, int value) {
+void Memory::set(const std::string& address, DataType value) {
   memory_[address] = value;
 }
-std::optional<int> Memory::try_read(const std::string& address) const {
+std::optional<DataType> Memory::try_read(const std::string& address) const {
   auto it = memory_.find(address);
   if (it == memory_.end()) {
     return {};
@@ -23,7 +23,7 @@ std::optional<int> Memory::try_read(const std::string& address) const {
   return it->second;
 }
 
-const std::map<std::string, int>& Memory::data() const {
+const std::map<std::string, DataType>& Memory::data() const {
   return memory_;
 }
 

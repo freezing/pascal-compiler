@@ -14,6 +14,7 @@
 #include "container_algo.h"
 #include "memory.h"
 #include "symbol_table.h"
+#include "semantic_analyser.h"
 
 namespace freezing::interpreter {
 
@@ -25,14 +26,16 @@ struct InterpreterError {
   }
 };
 
+using InterpreterErrorsT = std::variant<InterpreterError, SemanticAnalysisError, ParserError, LexerError>;
+
 template<typename T>
-using InterpreterResult = Result<T, std::variant<InterpreterError, ParserError, LexerError>>;
+using InterpreterResult = Result<T, InterpreterErrorsT>;
 
 struct ProgramState {
   Memory memory;
-  std::map<NodeId, int> expression_evaluations;
+  std::map<NodeId, DataType> expression_evaluations;
   std::map<std::string, SymbolTable> symbol_tables;
-  std::vector<std::string> errors;
+  std::vector<InterpreterErrorsT> errors;
 };
 
 class Interpreter {

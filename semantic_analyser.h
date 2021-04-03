@@ -5,14 +5,23 @@
 #ifndef PASCAL_COMPILER_TUTORIAL__SEMANTIC_ANALYSER_H
 #define PASCAL_COMPILER_TUTORIAL__SEMANTIC_ANALYSER_H
 
+#include <iostream>
 #include "ast_visitor.h"
 #include "symbol_table.h"
 
 namespace freezing::interpreter {
 
+struct SemanticAnalysisError {
+  std::string message;
+
+  friend std::ostream& operator<<(std::ostream& os, const SemanticAnalysisError& error) {
+    return os << error.message;
+  }
+};
+
 class SemanticAnalyser {
 public:
-  Result<std::map<std::string, SymbolTable>, std::vector<std::string>> analyse(const Program& program) const;
+  Result<std::map<std::string, SymbolTable>, std::vector<SemanticAnalysisError>> analyse(const Program& program) const;
 };
 
 }

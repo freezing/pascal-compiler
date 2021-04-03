@@ -10,7 +10,42 @@ namespace freezing::interpreter {
 
 namespace detail {
 
-static Result<int> Calculate(int left, TokenType token_type, int right) {
+template<typename V1, typename V2, typename Fn>
+auto match(V1&& v1, V2&& v2, Fn&& fn) {
+  return std::visit([&v2, &fn](auto&& lhs) {
+    return std::visit([&fn, &lhs](auto&& rhs) {
+      return fn(lhs, rhs);
+    }, v2);
+  }, v1);
+}
+
+DataType operator+(const DataType& lhs, const DataType& rhs) {
+  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> DataType { return lhs + rhs; });
+}
+
+DataType operator-(const DataType& lhs, const DataType& rhs) {
+  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> DataType { return lhs - rhs; });
+}
+
+// Unary -
+DataType operator-(const DataType& value) {
+  return std::visit([](auto&& value) -> DataType { return -value; }, value);
+}
+
+DataType operator*(const DataType& lhs, const DataType& rhs) {
+  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> DataType { return lhs * rhs; });
+}
+
+Result<DataType, InterpreterError> operator/(const DataType& lhs, const DataType& rhs) {
+  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> Result<DataType, InterpreterError> {
+    if (rhs != 0) {
+      return lhs / rhs;
+    }
+    return make_error(InterpreterError{"Invalid division by zero"});;
+  });
+}
+
+static Result<DataType, InterpreterError> Calculate(DataType left, TokenType token_type, DataType right) {
   switch (token_type) {
   case TokenType::MINUS:
     return left - right;
@@ -20,9 +55,6 @@ static Result<int> Calculate(int left, TokenType token_type, int right) {
     return left * right;
   case TokenType::INTEGER_DIV:
   case TokenType::REAL_DIV:
-    if (right == 0) {
-      return make_error<std::string>("Invalid division by zero");
-    }
     return left / right;
   case TokenType::OPEN_BRACKET:
   case TokenType::CLOSED_BRACKET:
@@ -45,10 +77,10 @@ static Result<int> Calculate(int left, TokenType token_type, int right) {
     break;
   }
   assert(false);
-  return make_error<std::string>("assertion");
+  return make_error(InterpreterError{"assertion"});
 }
 
-static int UnaryCalculate(int result, TokenType token_type) {
+static DataType UnaryCalculate(DataType result, TokenType token_type) {
   switch (token_type) {
   case TokenType::MINUS:
     return -result;
@@ -88,16 +120,16 @@ struct NumTypeAsDoubleExtractorFn {
   }
 };
 
-static void add_error_if_variable(std::vector<std::string>& errors, const ExpressionNode& expression_node) {
+static void add_error_if_variable(std::vector<InterpreterErrorsT>& errors, const ExpressionNode& expression_node) {
   struct Fn {
-    std::vector<std::string>& errors;
+    std::vector<InterpreterErrorsT>& errors;
 
     void operator()(const BinOp& bin_op) const {}
 
     void operator()(const UnaryOp& unary_op) const {}
 
     void operator()(const Variable& variable) const {
-      errors.push_back(fmt::format("Unknown value for variable: '{}'", variable.name));
+      errors.emplace_back(InterpreterError{fmt::format("Unknown value for variable: '{}'", variable.name)});
     }
 
     void operator()(const Num& num) const {}
@@ -135,7 +167,7 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
     program_state.memory.set(assignment_statement.variable.name, expr_eval_it->second);
   };
   callbacks.unary_op = [&program_state](const UnaryOp& unary_op) {
-    int expression_value = program_state.expression_evaluations[node_id(*unary_op.node)];
+    DataType expression_value = program_state.expression_evaluations[node_id(*unary_op.node)];
     program_state.expression_evaluations[unary_op.id] = detail::UnaryCalculate(expression_value, unary_op.op_type);
   };
   callbacks.bin_op = [&program_state](const BinOp& bin_op) {
@@ -159,16 +191,11 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
     }
   };
   callbacks.num = [&program_state](const Num& num) {
-    // TODO: Handle float vs int.
     program_state.expression_evaluations[num.id] = std::visit(detail::NumTypeAsDoubleExtractorFn{}, num.value);
   };
   callbacks.empty = [](const Empty& empty) {};
 
   AstVisitorFn{callbacks}.visit(*program);
-  // Remove duplicate errors.
-  std::sort(program_state.errors.begin(), program_state.errors.end());
-  program_state.errors
-      .erase(std::unique(program_state.errors.begin(), program_state.errors.end()), program_state.errors.end());
   return program_state;
 }
 

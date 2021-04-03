@@ -47,7 +47,7 @@ int main() {
   std::string pascal_program = R"(
 PROGRAM Part12;
 VAR
-   a : INTEGER;
+   a : REAL;
 
 PROCEDURE P1;
 VAR
@@ -58,7 +58,7 @@ VAR
    VAR
       c, z : INTEGER;
    BEGIN {P2}
-      z := 777;
+      z := 777.5;
    END;  {P2}
 
 BEGIN {P1}

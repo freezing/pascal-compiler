@@ -8,23 +8,25 @@
 #include <string>
 #include <map>
 #include <cassert>
+#include <variant>
 #include <optional>
 
 namespace freezing::interpreter {
 
+using DataType = std::variant<int, double>;
+
 class Memory {
 public:
-  int read(const std::string& address) const;
+  DataType read(const std::string& address) const;
 
-  std::optional<int> try_read(const std::string& address) const;
+  std::optional<DataType> try_read(const std::string& address) const;
 
-  void set(const std::string& address, int value);
+  void set(const std::string& address, DataType value);
 
-  const std::map<std::string, int>& data() const;
+  const std::map<std::string, DataType>& data() const;
 
 private:
-  // TODO: should support double values too.
-  std::map<std::string, int> memory_;
+  std::map<std::string, DataType> memory_;
 };
 
 }
