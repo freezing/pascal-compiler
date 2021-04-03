@@ -124,8 +124,6 @@ struct CharLocation {
 struct Token {
   TokenType token_type;
   std::optional<std::string> value;
-  // Location of the first character of the token.
-  CharLocation location;
 
   int AsInt() const {
     assert(value.has_value());

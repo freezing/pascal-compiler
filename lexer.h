@@ -34,18 +34,22 @@ public:
 
   LexerResult<Token> pop();
   LexerResult<Token> pop(TokenType token_type);
-  // TODO: peek should always return Token.
-  // This can be achieved by moving check in the advance.
-  const LexerResult<Token>& peek();
+  // Returns the token after the last successful advance() call.
+  // The result is undefined if the advance() method hasn't been called.
+  const Token& peek();
+  // TODO: Lexer shouldn't provide advance(TokenType) because the resulting error if the token doesn't match given
+  // token_type is ParserError, not LexerError.
+  // Let Parser deal with it.
   LexerResult<Void> advance(TokenType token_type);
-  void advance();
+  LexerResult<Void> advance();
+  CharLocation token_location() const;
 
 private:
   // Text to interpret.
   std::string text_;
   // Position of the next character in text.
   int pos_;
-  LexerResult<Token> next_token_;
+  Token current_token_;
   CharLocation current_location_;
 
   char peek_char() const;

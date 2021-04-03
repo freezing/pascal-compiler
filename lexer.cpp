@@ -18,18 +18,16 @@ const std::map<std::string, Token>
     {"PROCEDURE", Token{TokenType::PROCEDURE}},
 };
 
-Lexer::Lexer(std::string&& text) : text_{std::move(text)}, pos_{0}, current_location_{0, 0} {
-  next_token_ = parse_token();
-}
+Lexer::Lexer(std::string&& text) : text_{std::move(text)}, pos_{0}, current_location_{0, 0} {}
 
 LexerResult<Token> Lexer::pop() {
-  auto ret = std::move(next_token_);
+  auto ret = std::move(current_token_);
   advance();
   return ret;
 }
 
 LexerResult<Token> Lexer::pop(TokenType token_type) {
-  auto ret = std::move(next_token_);
+  auto ret = std::move(current_token_);
   auto check = advance(token_type);
   if (!check) {
     return forward_error(std::move(check));
@@ -37,25 +35,27 @@ LexerResult<Token> Lexer::pop(TokenType token_type) {
   return ret;
 }
 
-const LexerResult<Token>& Lexer::peek() {
-  return next_token_;
+const Token& Lexer::peek() {
+  return current_token_;
 }
 
 LexerResult<Void> Lexer::advance(TokenType token_type) {
-  auto check_token_type = [token_type](const Token& token) -> LexerResult<Void> {
-    if (token.token_type != token_type) {
-      return make_error(LexerError{token.location, fmt::format("Unexpected token type: {}", token_type)});
-    }
-    return {};
-  };
-  return next_token_.and_then(check_token_type).map([this](auto&&) {
-    advance();
-    return Void{};
-  });
+  if (current_token_.token_type == token_type) {
+    return advance();
+  }
+  // TODO: It's technically a parser error.
+  return make_error(LexerError{current_location_, fmt::format("Expected token type: {}, but got: {}",
+                                                              token_type,
+                                                              current_token_.token_type)});
 }
 
-void Lexer::advance() {
-  next_token_ = parse_token();
+LexerResult<Void> Lexer::advance() {
+  LexerResult<Token> result = parse_token();
+  if (!result) {
+    return forward_error(std::move(result));
+  }
+  current_token_ = std::move(*result);
+  return {};
 }
 
 char Lexer::peek_char() const {
@@ -155,6 +155,10 @@ LexerResult<Token> Lexer::parse_token() {
     }
     return make_error(LexerError{location, fmt::format("Unknown character: {}", current_char)});
   }
+}
+
+CharLocation Lexer::token_location() const {
+  return current_location_;
 }
 
 }

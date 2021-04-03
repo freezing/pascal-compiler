@@ -35,7 +35,11 @@ Error<E> make_error(E&& e) {
 
 template<typename T, typename E>
 Error<E> forward_error(const Result<T, E>& result) {
-  return make_error(result.error());
+  if constexpr (detail::is_variant<E>::value) {
+    return make_error(variant_cast(result.error()));
+  } else {
+    return make_error(result.error());
+  }
 }
 
 template<typename T, typename E>

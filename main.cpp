@@ -22,7 +22,7 @@ int visualise_ast(std::string&& pascal_program) {
 int run_interpreter(std::string&& pascal_program) {
   auto result = Interpreter{}.run(std::move(pascal_program));
   if (!result) {
-    std::cout << fmt::format("Failed to interpret program_post. Error: {}", result.error()) << std::endl;
+    std::cout << fmt::format("Failed to interpret program. Error: {}", result.error()) << std::endl;
   } else {
     std::cout << "Memory dump: " << std::endl;
     for (const auto& entry : result->memory.data()) {
@@ -49,7 +49,7 @@ PROGRAM Part12;
 VAR
    a : REAL;
 
-PROCEDURE P1;
+PROCEDURE P1(f, d: INTEGER; l: REAL);
 VAR
    b : REAL;
    k : INTEGER;
@@ -67,6 +67,7 @@ END;  {P1}
 
 BEGIN {Part12}
    a := 10;
+   P1(a + 10, a * a, 33.5 + 22);
 END.  {Part12}
 )";
 //  return visualise_ast(std::move(pascal_program));
