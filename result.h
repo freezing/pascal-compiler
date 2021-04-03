@@ -7,6 +7,18 @@
 
 #include <tl/expected.hpp>
 #include <string>
+#include <variant>
+#include <type_traits>
+#include "variant_cast.h"
+
+namespace detail {
+
+template<typename T> struct is_variant : std::false_type {};
+
+template<typename ...Args>
+struct is_variant<std::variant<Args...>> : std::true_type {};
+
+}
 
 struct Void {};
 
@@ -21,14 +33,18 @@ Error<E> make_error(E&& e) {
   return Error<typename std::decay<E>::type>(std::forward<E>(e));
 }
 
-template<typename T1, typename E>
-Error<E> forward_error(const Result<T1, E>& result) {
+template<typename T, typename E>
+Error<E> forward_error(const Result<T, E>& result) {
   return make_error(result.error());
 }
 
-template<typename T1, typename E>
-Error<E> forward_error(Result<T1, E>&& result) {
-  return make_error(std::move(result).error());
+template<typename T, typename E>
+auto forward_error(Result<T, E>&& result) {
+  if constexpr (detail::is_variant<E>::value) {
+    return make_error(variant_cast(std::move(result).error()));
+  } else {
+    return make_error(std::move(result).error());
+  }
 }
 
 #endif //PASCAL_COMPILER_TUTORIAL__RESULT_H
