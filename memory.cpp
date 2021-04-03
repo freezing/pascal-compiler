@@ -15,5 +15,16 @@ int Memory::read(const std::string& address) const {
 void Memory::set(const std::string& address, int value) {
   memory_[address] = value;
 }
+std::optional<int> Memory::try_read(const std::string& address) const {
+  auto it = memory_.find(address);
+  if (it == memory_.end()) {
+    return {};
+  }
+  return it->second;
+}
+
+const std::map<std::string, int>& Memory::data() const {
+  return memory_;
+}
 
 }

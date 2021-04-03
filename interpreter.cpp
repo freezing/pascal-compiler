@@ -132,7 +132,7 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
     if (expr_eval_it == program_state.expression_evaluations.end()) {
       return;
     }
-    program_state.global_scope[assignment_statement.variable.name] = expr_eval_it->second;
+    program_state.memory.set(assignment_statement.variable.name, expr_eval_it->second);
   };
   callbacks.unary_op = [&program_state](const UnaryOp& unary_op) {
     int expression_value = program_state.expression_evaluations[node_id(*unary_op.node)];
@@ -159,11 +159,12 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
     }
   };
   callbacks.variable = [&program_state](const Variable& variable) {
-    auto it = program_state.global_scope.find(variable.name);
-    if (it == program_state.global_scope.end()) {
+    // TODO: Why is it required to store this in the variable callback?
+    auto value = program_state.memory.try_read(variable.name);
+    if (!value) {
       return;
     }
-    program_state.expression_evaluations[variable.id] = it->second;
+    program_state.expression_evaluations[variable.id] = *value;
   };
   callbacks.num = [&program_state](const Num& num) {
     // TODO: Handle float vs int.

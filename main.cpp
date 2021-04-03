@@ -24,8 +24,8 @@ int run_interpreter(std::string&& pascal_program) {
   if (!result) {
     std::cout << fmt::format("Failed to interpret program_post. Error: {}", result.error()) << std::endl;
   } else {
-    std::cout << "Global scope: " << std::endl;
-    for (const auto& entry : result->global_scope) {
+    std::cout << "Memory dump: " << std::endl;
+    for (const auto& entry : result->memory.data()) {
       std::cout << fmt::format("  {} = {}", entry.first, entry.second) << std::endl;
     }
 

@@ -12,6 +12,7 @@
 #include "result.h"
 #include "parser.h"
 #include "container_algo.h"
+#include "memory.h"
 #include "symbol_table.h"
 
 namespace freezing::interpreter {
@@ -28,9 +29,7 @@ template<typename T>
 using InterpreterResult = Result<T, std::variant<InterpreterError, ParserError, LexerError>>;
 
 struct ProgramState {
-  // TODO: Should be renamed to GlobalMemory, and there should be a data-structure that can resolve
-  // a symbol to a memory location.
-  std::map<std::string, int> global_scope;
+  Memory memory;
   std::map<NodeId, int> expression_evaluations;
   std::map<std::string, SymbolTable> symbol_tables;
   std::vector<std::string> errors;
