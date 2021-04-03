@@ -18,17 +18,17 @@ const std::map<std::string, Token>
     {"PROCEDURE", Token{TokenType::PROCEDURE}},
 };
 
-Lexer::Lexer(std::string&& text) : text_{std::move(text)}, pos_{0} {
+Lexer::Lexer(std::string&& text) : text_{std::move(text)}, pos_{0}, current_location_{0, 0} {
   next_token_ = parse_token();
 }
 
-Result<Token> Lexer::pop() {
+LexerResult<Token> Lexer::pop() {
   auto ret = std::move(next_token_);
   advance();
   return ret;
 }
 
-Result<Token> Lexer::pop(TokenType token_type) {
+LexerResult<Token> Lexer::pop(TokenType token_type) {
   auto ret = std::move(next_token_);
   auto check = advance(token_type);
   if (!check) {
@@ -37,14 +37,14 @@ Result<Token> Lexer::pop(TokenType token_type) {
   return ret;
 }
 
-const Result<Token>& Lexer::peek() {
+const LexerResult<Token>& Lexer::peek() {
   return next_token_;
 }
 
-Result<Void> Lexer::advance(TokenType token_type) {
-  auto check_token_type = [token_type](const Token& token) -> Result<Void> {
+LexerResult<Void> Lexer::advance(TokenType token_type) {
+  auto check_token_type = [token_type](const Token& token) -> LexerResult<Void> {
     if (token.token_type != token_type) {
-      return make_error(fmt::format("Unexpected token type: {}", token_type));
+      return make_error(LexerError{token.location, fmt::format("Unexpected token type: {}", token_type)});
     }
     return {};
   };
@@ -61,12 +61,19 @@ void Lexer::advance() {
 char Lexer::peek_char() const {
   return text_[pos_];
 }
+
 char Lexer::next_char() {
+  current_location_.column_number++;
+  if (text_[pos_] == '\n') {
+    current_location_.line_number++;
+    current_location_.column_number = 0;
+  }
   return text_[pos_++];
 }
+
 void Lexer::skip_whitespaces() {
   while (pos_ < text_.size() && isspace(text_[pos_])) {
-    pos_++;
+    next_char();
   }
 }
 
@@ -78,7 +85,7 @@ void Lexer::skip_until_comment_close() {
   }
 }
 
-Result<Token> Lexer::parse_token() {
+LexerResult<Token> Lexer::parse_token() {
   while (true) {
     skip_whitespaces();
     if (pos_ >= text_.size()) {
@@ -87,6 +94,7 @@ Result<Token> Lexer::parse_token() {
 
     // TODO: Use peek_char().
     char current_char = next_char();
+    CharLocation location = current_location_;
 
     if (current_char == '{') {
       skip_until_comment_close();
@@ -145,7 +153,7 @@ Result<Token> Lexer::parse_token() {
       }
       return it->second;
     }
-    return make_error(fmt::format("Unknown character: {}", current_char));
+    return make_error(LexerError{location, fmt::format("Unknown character: {}", current_char)});
   }
 }
 

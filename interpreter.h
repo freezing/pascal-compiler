@@ -16,6 +16,17 @@
 
 namespace freezing::interpreter {
 
+struct InterpreterError {
+  std::string message;
+
+  friend std::ostream& operator<<(std::ostream& os, const InterpreterError& e) {
+    return os << "InterpreterError: " << e.message;
+  }
+};
+
+template<typename T>
+using InterpreterResult = Result<T, std::variant<InterpreterError, ParserError, LexerError>>;
+
 struct ProgramState {
   // TODO: Should be renamed to GlobalMemory, and there should be a data-structure that can resolve
   // a symbol to a memory location.
@@ -27,7 +38,7 @@ struct ProgramState {
 
 class Interpreter {
 public:
-  Result<ProgramState> run(std::string&& text);
+  InterpreterResult<ProgramState> run(std::string&& text);
 };
 
 }

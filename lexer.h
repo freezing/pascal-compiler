@@ -13,16 +13,31 @@
 
 namespace freezing::interpreter {
 
+struct LexerError {
+  CharLocation location;
+  std::string message;
+
+  friend std::ostream& operator<<(std::ostream& os, const LexerError& e) {
+    return os << fmt::format("LexerError(line and column = ({}, {})): {}",
+                             e.location.line_number,
+                             e.location.column_number,
+                             e.message);
+  }
+};
+
+template<typename T>
+using LexerResult = Result<T, LexerError>;
+
 class Lexer {
 public:
   explicit Lexer(std::string&& text);
 
-  Result<Token> pop();
-  Result<Token> pop(TokenType token_type);
+  LexerResult<Token> pop();
+  LexerResult<Token> pop(TokenType token_type);
   // TODO: peek should always return Token.
   // This can be achieved by moving check in the advance.
-  const Result<Token>& peek();
-  Result<Void> advance(TokenType token_type);
+  const LexerResult<Token>& peek();
+  LexerResult<Void> advance(TokenType token_type);
   void advance();
 
 private:
@@ -30,13 +45,14 @@ private:
   std::string text_;
   // Position of the next character in text.
   int pos_;
-  Result<Token> next_token_;
+  LexerResult<Token> next_token_;
+  CharLocation current_location_;
 
   char peek_char() const;
   char next_char();
   void skip_whitespaces();
   void skip_until_comment_close();
-  Result<Token> parse_token();
+  LexerResult<Token> parse_token();
 };
 
 }

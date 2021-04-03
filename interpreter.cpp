@@ -4,6 +4,7 @@
 
 #include "interpreter.h"
 #include "semantic_analyser.h"
+#include "variant_cast.h"
 
 namespace freezing::interpreter {
 
@@ -106,7 +107,7 @@ static void add_error_if_variable(std::vector<std::string>& errors, const Expres
 
 }
 
-Result<ProgramState> Interpreter::run(std::string&& text) {
+InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
   auto program = Parser{std::move(text)}.parse_program();
   if (!program) {
     return forward_error(std::move(program));

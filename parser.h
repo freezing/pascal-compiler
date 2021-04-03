@@ -5,11 +5,23 @@
 #ifndef PASCAL_COMPILER_TUTORIAL__PARSER_H
 #define PASCAL_COMPILER_TUTORIAL__PARSER_H
 
+#include <iostream>
 #include "lexer.h"
 #include "ast.h"
 #include "id_generator.h"
 
 namespace freezing::interpreter {
+
+struct ParserError {
+  std::string message;
+
+  friend std::ostream& operator<<(std::ostream& os, const ParserError& e) {
+    return os << "ParserError: " << e.message;
+  }
+};
+
+template<typename T>
+using ParserResult = Result<T, std::variant<ParserError, LexerError>>;
 
 // Parser that implements the following grammar:
 //
@@ -60,26 +72,26 @@ class Parser {
 public:
   explicit Parser(std::string&& text);
 
-  Result<Program> parse_program();
-  Result<Block> parse_block();
-  Result<std::vector<VarDecl>> parse_variable_declarations();
-  Result<VarDecl> parse_variable_declaration();
-  Result<std::vector<ProcedureDecl>> parse_procedure_declarations();
-  Result<ProcedureDecl> parse_procedure_declaration();
-  Result<std::vector<Param>> parse_formal_parameter_list();
-  Result<std::vector<Param>> parse_formal_parameters();
+  ParserResult<Program> parse_program();
+  ParserResult<Block> parse_block();
+  ParserResult<std::vector<VarDecl>> parse_variable_declarations();
+  ParserResult<VarDecl> parse_variable_declaration();
+  ParserResult<std::vector<ProcedureDecl>> parse_procedure_declarations();
+  ParserResult<ProcedureDecl> parse_procedure_declaration();
+  ParserResult<std::vector<Param>> parse_formal_parameter_list();
+  ParserResult<std::vector<Param>> parse_formal_parameters();
   // Either INTEGER or REAL.
-  Result<TokenType> parse_type();
-  Result<CompoundStatement> parse_compound_statement();
-  Result<std::vector<Statement>> parse_statement_list();
-  Result<Statement> parse_statement();
-  Result<AssignmentStatement> parse_assignment_statement();
+  ParserResult<TokenType> parse_type();
+  ParserResult<CompoundStatement> parse_compound_statement();
+  ParserResult<std::vector<Statement>> parse_statement_list();
+  ParserResult<Statement> parse_statement();
+  ParserResult<AssignmentStatement> parse_assignment_statement();
   Empty parse_empty();
-  Result<ExpressionNode> parse_expr();
-  Result<ExpressionNode> parse_term();
-  Result<ExpressionNode> parse_factor();
-  Result<Identifier> parse_identifier();
-  Result<Variable> parse_variable();
+  ParserResult<ExpressionNode> parse_expr();
+  ParserResult<ExpressionNode> parse_term();
+  ParserResult<ExpressionNode> parse_factor();
+  ParserResult<Identifier> parse_identifier();
+  ParserResult<Variable> parse_variable();
 
 private:
   Lexer lexer_;

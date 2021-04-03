@@ -116,9 +116,16 @@ inline std::ostream& operator<<(std::ostream& os, const TokenType& token_type) {
   return os << type_string;
 }
 
+struct CharLocation {
+  int line_number;
+  int column_number;
+};
+
 struct Token {
   TokenType token_type;
   std::optional<std::string> value;
+  // Location of the first character of the token.
+  CharLocation location;
 
   int AsInt() const {
     assert(value.has_value());

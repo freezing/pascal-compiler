@@ -3,6 +3,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "interpreter.h"
+#include "variant_ostream.h"
 
 using namespace freezing::interpreter;
 
