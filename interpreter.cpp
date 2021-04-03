@@ -3,28 +3,17 @@
 //
 
 #include "interpreter.h"
-#include "semantic_analyser.h"
-#include "variant_cast.h"
 
 namespace freezing::interpreter {
 
 namespace detail {
 
-template<typename V1, typename V2, typename Fn>
-auto match(V1&& v1, V2&& v2, Fn&& fn) {
-  return std::visit([&v2, &fn](auto&& lhs) {
-    return std::visit([&fn, &lhs](auto&& rhs) {
-      return fn(lhs, rhs);
-    }, v2);
-  }, v1);
-}
-
 DataType operator+(const DataType& lhs, const DataType& rhs) {
-  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> DataType { return lhs + rhs; });
+  return std::visit([](auto&& lhs, auto&& rhs) -> DataType { return lhs + rhs; }, lhs, rhs);
 }
 
 DataType operator-(const DataType& lhs, const DataType& rhs) {
-  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> DataType { return lhs - rhs; });
+  return std::visit([](auto&& lhs, auto&& rhs) -> DataType { return lhs - rhs; }, lhs, rhs);
 }
 
 // Unary -
@@ -33,16 +22,16 @@ DataType operator-(const DataType& value) {
 }
 
 DataType operator*(const DataType& lhs, const DataType& rhs) {
-  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> DataType { return lhs * rhs; });
+  return std::visit([](auto&& lhs, auto&& rhs) -> DataType { return lhs * rhs; }, lhs, rhs);
 }
 
 Result<DataType, InterpreterError> operator/(const DataType& lhs, const DataType& rhs) {
-  return match(lhs, rhs, [](auto&& lhs, auto&& rhs) -> Result<DataType, InterpreterError> {
+  return std::visit([](auto&& lhs, auto&& rhs) -> Result<DataType, InterpreterError> {
     if (rhs != 0) {
       return lhs / rhs;
     }
     return make_error(InterpreterError{"Invalid division by zero"});;
-  });
+  }, lhs, rhs);
 }
 
 static Result<DataType, InterpreterError> Calculate(DataType left, TokenType token_type, DataType right) {
