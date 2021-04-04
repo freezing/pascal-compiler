@@ -131,8 +131,7 @@ struct Token {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Token& token) {
-    // TODO: Use fmt::formatter.
-    return os << "Token(" << token.token_type << ", lexeme=" << token.value << ")";
+    return os << fmt::format("Token({}, lexeme={})", token.token_type, token.value);
   }
 };
 

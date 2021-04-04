@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <optional>
+#include "stringstream_formatter.h"
 
 namespace freezing::interpreter {
 
@@ -19,5 +20,8 @@ inline std::ostream& operator<<(std::ostream& os, const std::optional<T>& an_opt
 }
 
 }
+
+template<typename T>
+struct fmt::formatter<std::optional<T>> : freezing::interpreter::StringStreamFormatter<std::optional<T>> {};
 
 #endif //PASCAL_COMPILER_TUTORIAL__OPTIONAL_FORMATTER_H
