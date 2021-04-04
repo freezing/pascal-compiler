@@ -48,11 +48,14 @@ using ParserResult = Result<T, std::variant<ParserError, LexerError>>;
 //    statement_list : statement
 //                   | statement SEMI statement_list
 //
-//    statement : compound_statement
+//    statement : proccall_statement
+//              | compound_statement
 //              | assignment_statement
 //              | empty
 //
 //    assignment_statement : variable ASSIGN expr
+//
+//    proccall_statement : ID LPAREN (expr (COMMA expr)*)? RPAREN
 //
 //    empty :
 //
@@ -70,7 +73,11 @@ using ParserResult = Result<T, std::variant<ParserError, LexerError>>;
 //    variable: ID
 class Parser {
 public:
-  explicit Parser(std::string&& text);
+  explicit Parser(std::vector<Token>&& tokens);
+  Parser(Parser&& parser) noexcept;
+  Parser& operator=(Parser&& parser) noexcept;
+
+  static Result<Parser, LexerError> create(std::string&& text);
 
   ParserResult<Program> parse_program();
   ParserResult<Block> parse_block();
@@ -86,6 +93,7 @@ public:
   ParserResult<std::vector<Statement>> parse_statement_list();
   ParserResult<Statement> parse_statement();
   ParserResult<AssignmentStatement> parse_assignment_statement();
+  ParserResult<ProcedureCall> parse_procedure_call();
   Empty parse_empty();
   ParserResult<ExpressionNode> parse_expr();
   ParserResult<ExpressionNode> parse_term();
@@ -94,8 +102,13 @@ public:
   ParserResult<Variable> parse_variable();
 
 private:
-  Lexer lexer_;
+  // Contains at least END_OF_FILE token, which is always the last one.
+  std::vector<Token> tokens_;
+  std::vector<Token>::const_iterator current_token_;
   IdGenerator<NodeId> node_id_generator;
+
+  static Error<ParserError> unexpected_token_error(TokenType token_type, const Token& actual);
+  bool is_current_token(TokenType token_type) const;
 };
 
 }

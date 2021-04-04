@@ -80,6 +80,12 @@ public:
       body += detail::format_node_edge(assignment_statement.id,
                                        std::visit(NodeIdExtractorFn{}, assignment_statement.expression));
     };
+    callbacks.procedure_call_post = [&body](const ProcedureCall& procedure_call) {
+      body += detail::format_node(procedure_call.id, fmt::format("{}()", procedure_call.name));
+      for (const auto& param : procedure_call.parameters) {
+        body += detail::format_node_edge(procedure_call.id, std::visit(NodeIdExtractorFn{}, param));
+      }
+    };
     callbacks.unary_op = [&body](const UnaryOp& unary_op) {
       body += detail::format_node(unary_op.id, fmt::format("Unary({})", unary_op.op_type));
       body += detail::format_node_edge(unary_op.id, std::visit(NodeIdExtractorFn{}, *unary_op.node));

@@ -21,38 +21,54 @@ ParserResult<Num> parse_double_const(IdGenerator<NodeId>& node_id_generator, con
 
 }
 
-Parser::Parser(std::string&& text) : lexer_{std::move(text)}, node_id_generator{} {}
+Parser::Parser(std::vector<Token>&& tokens) : tokens_{std::move(tokens)}, current_token_{tokens_.begin()},
+                                              node_id_generator{} {
+}
+
+Result<Parser, LexerError> Parser::create(std::string&& text) {
+  Lexer lexer{std::move(text)};
+
+  std::vector<Token> tokens;
+
+  while (true) {
+    auto advance_check = lexer.advance();
+    if (!advance_check) {
+      return forward_error(std::move(advance_check));
+    }
+    tokens.push_back(std::move(lexer.peek()));
+    if (tokens.back().token_type == TokenType::END_OF_FILE) {
+      break;
+    }
+  }
+  assert(tokens.back().token_type == TokenType::END_OF_FILE);
+  return Parser{std::move(tokens)};
+}
 
 ParserResult<Program> Parser::parse_program() {
-  auto result = lexer_.advance();
-  if (!result) {
-    return forward_error(std::move(result));
+  if (!is_current_token(TokenType::PROGRAM)) {
+    return unexpected_token_error(TokenType::PROGRAM, *current_token_);
   }
-
-  auto program_check = lexer_.advance(TokenType::PROGRAM);
-  if (!program_check) {
-    return forward_error(std::move(program_check));
-  }
+  current_token_++;
 
   auto identifier = parse_identifier();
   if (!identifier) {
     return forward_error(std::move(identifier));
   }
 
-  auto semi_check = lexer_.advance(TokenType::SEMICOLON);
-  if (!semi_check) {
-    return forward_error(std::move(semi_check));
+  if (!is_current_token(TokenType::SEMICOLON)) {
+    return unexpected_token_error(TokenType::SEMICOLON, *current_token_);
   }
+  current_token_++;
 
   auto block = parse_block();
   if (!block) {
     return forward_error(std::move(block));
   }
 
-  auto dot_check = lexer_.advance(TokenType::DOT);
-  if (!dot_check) {
-    return forward_error(std::move(dot_check));
+  if (!is_current_token(TokenType::DOT)) {
+    return unexpected_token_error(TokenType::DOT, *current_token_);
   }
+  current_token_++;
   return Program{node_id_generator.next(), std::move(*identifier), std::move(*block)};
 }
 
@@ -60,9 +76,7 @@ ParserResult<Block> Parser::parse_block() {
   std::vector<VarDecl> variable_declarations;
   std::vector<ProcedureDecl> procedure_declarations;
 
-  Token current_token = lexer_.peek();
-
-  if (current_token.token_type == TokenType::VAR) {
+  if (is_current_token(TokenType::VAR)) {
     auto variable_declarations_result = parse_variable_declarations();
     if (!variable_declarations_result) {
       return forward_error(std::move(variable_declarations_result));
@@ -70,9 +84,7 @@ ParserResult<Block> Parser::parse_block() {
     variable_declarations = std::move(*variable_declarations_result);
   }
 
-  current_token = lexer_.peek();
-
-  if (current_token.token_type == TokenType::PROCEDURE) {
+  if (current_token_->token_type == TokenType::PROCEDURE) {
     auto procedure_declarations_result = parse_procedure_declarations();
     if (!procedure_declarations_result) {
       return forward_error(std::move(procedure_declarations_result));
@@ -90,25 +102,23 @@ ParserResult<Block> Parser::parse_block() {
 }
 
 ParserResult<std::vector<VarDecl>> Parser::parse_variable_declarations() {
-  auto var_check = lexer_.advance(TokenType::VAR);
-  if (!var_check) {
-    return forward_error(std::move(var_check));
+  if (!is_current_token(TokenType::VAR)) {
+    return unexpected_token_error(TokenType::VAR, *current_token_);
   }
+  current_token_++;
   std::vector<VarDecl> declarations;
   while (true) {
     auto variable_declaration = parse_variable_declaration();
     if (!variable_declaration) {
       return forward_error(std::move(variable_declaration));
     }
-    auto semi_check = lexer_.advance(TokenType::SEMICOLON);
-    if (!semi_check) {
-      return forward_error(std::move(semi_check));
+    if (!is_current_token(TokenType::SEMICOLON)) {
+      return unexpected_token_error(TokenType::SEMICOLON, *current_token_);
     }
-
+    current_token_++;
     declarations.push_back(std::move(*variable_declaration));
 
-    const auto& next_token = lexer_.peek();
-    if (next_token.token_type != TokenType::ID) {
+    if (!is_current_token(TokenType::ID)) {
       break;
     }
   }
@@ -125,12 +135,11 @@ ParserResult<VarDecl> Parser::parse_variable_declaration() {
   variables.push_back(std::move(*variable));
 
   while (true) {
-    auto next_token = lexer_.peek();
-    if (next_token.token_type != TokenType::COMMA) {
+    if (!is_current_token(TokenType::COMMA)) {
       break;
     }
+    current_token_++;
 
-    lexer_.advance();
     auto new_variable = parse_variable();
     if (!new_variable) {
       return forward_error(std::move(new_variable));
@@ -138,10 +147,10 @@ ParserResult<VarDecl> Parser::parse_variable_declaration() {
     variables.push_back(std::move(*new_variable));
   }
 
-  auto colon_check = lexer_.advance(TokenType::COLON);
-  if (!colon_check) {
-    return forward_error(std::move(colon_check));
+  if (!is_current_token(TokenType::COLON)) {
+    return unexpected_token_error(TokenType::COLON, *current_token_);
   }
+  current_token_++;
 
   auto type_spec = parse_type();
   if (!type_spec) {
@@ -151,25 +160,22 @@ ParserResult<VarDecl> Parser::parse_variable_declaration() {
 }
 
 ParserResult<std::vector<ProcedureDecl>> Parser::parse_procedure_declarations() {
-  auto current_token = lexer_.peek();
-
   std::vector<ProcedureDecl> procedure_declarations;
-  while (current_token.token_type == TokenType::PROCEDURE) {
+  while (is_current_token(TokenType::PROCEDURE)) {
     auto procedure_declaration = parse_procedure_declaration();
     if (!procedure_declaration) {
       return forward_error(std::move(procedure_declaration));
     }
     procedure_declarations.push_back(std::move(*procedure_declaration));
-    current_token = lexer_.peek();
   }
   return procedure_declarations;
 }
 
 ParserResult<ProcedureDecl> Parser::parse_procedure_declaration() {
-  auto procedure_check = lexer_.advance(TokenType::PROCEDURE);
-  if (!procedure_check) {
-    return forward_error(std::move(procedure_check));
+  if (!is_current_token(TokenType::PROCEDURE)) {
+    return unexpected_token_error(TokenType::PROCEDURE, *current_token_);
   }
+  current_token_++;
 
   auto name = parse_identifier();
   if (!name) {
@@ -177,36 +183,34 @@ ParserResult<ProcedureDecl> Parser::parse_procedure_declaration() {
   }
 
   // (LPAREN formal_parameter_list RPAREN)?
-  auto current_token = lexer_.peek();
-
   std::vector<Param> params;
-  if (current_token.token_type == TokenType::OPEN_BRACKET) {
-    lexer_.advance();
+  if (is_current_token(TokenType::OPEN_BRACKET)) {
+    current_token_++;
     auto params_result = parse_formal_parameter_list();
     if (!params_result) {
       return forward_error(std::move(params_result));
     }
     params = std::move(*params_result);
-    auto check_right_paren = lexer_.advance(TokenType::CLOSED_BRACKET);
-    if (!check_right_paren) {
-      return forward_error(std::move(check_right_paren));
+    if (!is_current_token(TokenType::CLOSED_BRACKET)) {
+      return unexpected_token_error(TokenType::CLOSED_BRACKET, *current_token_);
     }
+    current_token_++;
   }
 
-  auto semi_check = lexer_.advance(TokenType::SEMICOLON);
-  if (!semi_check) {
-    return forward_error(std::move(semi_check));
+  if (!is_current_token(TokenType::SEMICOLON)) {
+    return unexpected_token_error(TokenType::SEMICOLON, *current_token_);
   }
+  current_token_++;
 
   auto block = parse_block();
   if (!block) {
     return forward_error(std::move(block));
   }
 
-  auto final_semi_check = lexer_.advance(TokenType::SEMICOLON);
-  if (!final_semi_check) {
-    return forward_error(std::move(final_semi_check));
+  if (!is_current_token(TokenType::SEMICOLON)) {
+    return unexpected_token_error(TokenType::SEMICOLON, *current_token_);
   }
+  current_token_++;
   return ProcedureDecl{node_id_generator.next(), std::move(*name), std::move(params), std::move(*block)};
 }
 
@@ -215,11 +219,10 @@ ParserResult<std::vector<Param>> Parser::parse_formal_parameter_list() {
   if (!formal_parameters) {
     return forward_error(std::move(formal_parameters));
   }
-  auto current_token = lexer_.peek();
   std::vector<Param> parameters = std::move(*formal_parameters);
 
-  if (current_token.token_type == TokenType::SEMICOLON) {
-    lexer_.advance();
+  if (is_current_token(TokenType::SEMICOLON)) {
+    current_token_++;
     auto list = parse_formal_parameter_list();
     if (!list) {
       return forward_error(std::move(list));
@@ -240,23 +243,19 @@ ParserResult<std::vector<Param>> Parser::parse_formal_parameters() {
   std::vector<Identifier> identifiers;
   identifiers.push_back(std::move(*id));
 
-  auto current_token = lexer_.peek();
-
-  while (current_token.token_type == TokenType::COMMA) {
-    lexer_.advance();
+  while (is_current_token(TokenType::COMMA)) {
+    current_token_++;
     id = parse_identifier();
     if (!id) {
       return forward_error(std::move(id));
     }
     identifiers.push_back(std::move(*id));
-
-    current_token = lexer_.peek();
   }
 
-  auto colon_check = lexer_.advance(TokenType::COLON);
-  if (!colon_check) {
-    return forward_error(std::move(colon_check));
+  if (!is_current_token(TokenType::COLON)) {
+    return unexpected_token_error(TokenType::COLON, *current_token_);
   }
+  current_token_++;
 
   auto type = parse_type();
   if (!type) {
@@ -271,31 +270,30 @@ ParserResult<std::vector<Param>> Parser::parse_formal_parameters() {
 }
 
 ParserResult<TokenType> Parser::parse_type() {
-  auto token = lexer_.pop();
-  if (!token) {
-    return forward_error(std::move(token));
+  if (!is_current_token(TokenType::INTEGER) && !is_current_token(TokenType::REAL)) {
+    return make_error(ParserError{
+        fmt::format("Expected type 'INTEGER' or 'REAL', but got token: '{}'", *current_token_)});
   }
-  if (token->token_type != TokenType::INTEGER && token->token_type != TokenType::REAL) {
-    return make_error(ParserError{fmt::format("Expected type 'INTEGER' or 'REAL', but got token: '{}'", *token)});
-  }
-  return token->token_type;
+  TokenType token_type = current_token_->token_type;
+  current_token_++;
+  return token_type;
 }
 
 ParserResult<CompoundStatement> Parser::parse_compound_statement() {
-  auto begin_check = lexer_.advance(TokenType::BEGIN);
-  if (!begin_check) {
-    return forward_error(std::move(begin_check));
+  if (!is_current_token(TokenType::BEGIN)) {
+    return unexpected_token_error(TokenType::BEGIN, *current_token_);
   }
+  current_token_++;
 
   auto statements = parse_statement_list();
   if (!statements) {
     return forward_error(std::move(statements));
   }
 
-  auto end_check = lexer_.advance(TokenType::END);
-  if (!end_check) {
-    return forward_error(std::move(end_check));
+  if (!is_current_token(TokenType::END)) {
+    return unexpected_token_error(TokenType::END, *current_token_);
   }
+  current_token_++;
   return CompoundStatement{node_id_generator.next(), std::move(*statements)};
 }
 
@@ -310,14 +308,8 @@ ParserResult<std::vector<Statement>> Parser::parse_statement_list() {
     statements.push_back((std::move(*statement)));
   }
 
-  while (true) {
-    auto next_token = lexer_.peek();
-
-    if (next_token.token_type != TokenType::SEMICOLON) {
-      break;
-    }
-    auto semicolon_check = lexer_.advance(TokenType::SEMICOLON);
-    assert(semicolon_check.has_value());
+  while (is_current_token(TokenType::SEMICOLON)) {
+    current_token_++;
 
     auto statement = parse_statement();
     if (!statement) {
@@ -329,11 +321,14 @@ ParserResult<std::vector<Statement>> Parser::parse_statement_list() {
 }
 
 ParserResult<Statement> Parser::parse_statement() {
-  auto next_token = lexer_.peek();
-
-  if (next_token.token_type == TokenType::BEGIN) {
+  if (is_current_token(TokenType::BEGIN)) {
     return parse_compound_statement();
-  } else if (next_token.token_type == TokenType::ID) {
+  } else if (is_current_token(TokenType::ID)) {
+    // Next element must be at least END_OF_FILE, so it's safe to check its type.
+    if ((current_token_ + 1)->token_type == TokenType::OPEN_BRACKET) {
+      return parse_procedure_call();
+    }
+
     return parse_assignment_statement();
   } else {
     return parse_empty();
@@ -346,10 +341,10 @@ ParserResult<AssignmentStatement> Parser::parse_assignment_statement() {
     return forward_error(std::move(variable));
   }
 
-  auto check_assign = lexer_.advance(TokenType::ASSIGN);
-  if (!check_assign) {
-    return forward_error(std::move(check_assign));
+  if (!is_current_token(TokenType::ASSIGN)) {
+    return unexpected_token_error(TokenType::ASSIGN, *current_token_);
   }
+  current_token_++;
 
   auto expr = parse_expr();
   if (!expr) {
@@ -359,15 +354,49 @@ ParserResult<AssignmentStatement> Parser::parse_assignment_statement() {
   return AssignmentStatement{node_id_generator.next(), std::move(*variable), std::move(*expr)};
 }
 
-ParserResult<Identifier> Parser::parse_identifier() {
-  auto token = lexer_.pop(TokenType::ID);
-  if (!token) {
-    return forward_error(std::move(token));
+ParserResult<ProcedureCall> Parser::parse_procedure_call() {
+  // proccall_statement : ID LPAREN (expr (COMMA expr)*)? RPAREN
+  if (!is_current_token(TokenType::ID)) {
+    return unexpected_token_error(TokenType::ID, *current_token_);
+  }
+  std::string name = *current_token_->value;
+  current_token_++;
+
+  if (!is_current_token(TokenType::OPEN_BRACKET)) {
+    return unexpected_token_error(TokenType::OPEN_BRACKET, *current_token_);
+  }
+  current_token_++;
+
+  // Parse arguments.
+  std::vector<ExpressionNode> arguments;
+  while (true) {
+    auto expr = parse_expr();
+    if (!expr) {
+      return forward_error(std::move(expr));
+    }
+    arguments.push_back(std::move(*expr));
+
+    if (!is_current_token(TokenType::COMMA)) {
+      break;
+    }
+    current_token_++;
   }
 
-  return std::move(token).map([](Token&& token) {
-    return std::move(*token.value);
-  });
+  if (!is_current_token(TokenType::CLOSED_BRACKET)) {
+    return unexpected_token_error(TokenType::CLOSED_BRACKET, *current_token_);
+  }
+  current_token_++;
+
+  return ProcedureCall{node_id_generator.next(), std::move(name), std::move(arguments)};
+}
+
+ParserResult<Identifier> Parser::parse_identifier() {
+  if (!is_current_token(TokenType::ID)) {
+    return unexpected_token_error(TokenType::ID, *current_token_);
+  }
+  Identifier id = std::move(*current_token_->value);
+  current_token_++;
+  return id;
 }
 
 ParserResult<Variable> Parser::parse_variable() {
@@ -390,13 +419,9 @@ ParserResult<ExpressionNode> Parser::parse_expr() {
   }
   ExpressionNode result = std::move(*first_term);
 
-  while (true) {
-    auto op_token = lexer_.peek();
-
-    if (op_token.token_type != TokenType::PLUS && op_token.token_type != TokenType::MINUS) {
-      break;
-    }
-    lexer_.advance();
+  while (is_current_token(TokenType::PLUS) || is_current_token(TokenType::MINUS)) {
+    Token op_token = *current_token_;
+    current_token_++;
 
     auto right = parse_term();
     if (!right) {
@@ -419,14 +444,10 @@ ParserResult<ExpressionNode> Parser::parse_term() {
 
   ExpressionNode result = std::move(*first_factor);
 
-  while (true) {
-    auto op_token = lexer_.peek();
-
-    if (op_token.token_type != TokenType::MUL && op_token.token_type != TokenType::INTEGER_DIV
-        && op_token.token_type != TokenType::REAL_DIV) {
-      break;
-    }
-    lexer_.advance();
+  while (is_current_token(TokenType::MUL) || is_current_token(TokenType::INTEGER_DIV)
+      || is_current_token(TokenType::REAL_DIV)) {
+    auto op_token = *current_token_;
+    current_token_++;
 
     auto right = parse_factor();
     if (!right) {
@@ -442,30 +463,23 @@ ParserResult<ExpressionNode> Parser::parse_term() {
 }
 
 ParserResult<ExpressionNode> Parser::parse_factor() {
-  auto first_token = lexer_.peek();
-
-  auto unary_op_handler = [this, &first_token](Token&& token) -> ParserResult<ExpressionNode> {
-    auto make_ast = [this, &first_token](ExpressionNode&& factor) -> ExpressionNode {
-      return UnaryOp{node_id_generator.next(), first_token.token_type,
-                     std::make_unique<ExpressionNode>(std::move(factor))};
-    };
-    return lexer_.advance(token.token_type)
-        .and_then([this](auto&&) { return parse_factor(); })
-        .map(make_ast);
-  };
-
   // PLUS factor
   // MINUS factor
-  if (first_token.token_type == TokenType::PLUS || first_token.token_type == TokenType::MINUS) {
-    return std::invoke(unary_op_handler, std::move(first_token));
+  if (is_current_token(TokenType::PLUS) || is_current_token(TokenType::MINUS)) {
+    auto op_type = current_token_->token_type;
+    current_token_++;
+
+    auto factor = parse_factor();
+    if (!factor) {
+      return forward_error(std::move(factor));
+    }
+
+    return UnaryOp{node_id_generator.next(), op_type, std::make_unique<ExpressionNode>(std::move(*factor))};
   }
 
   // LPAREN expr RPAREN
-  if (first_token.token_type == TokenType::OPEN_BRACKET) {
-    auto advance_check = lexer_.advance(TokenType::OPEN_BRACKET);
-    if (!advance_check) {
-      return forward_error(std::move(advance_check));
-    }
+  if (is_current_token(TokenType::OPEN_BRACKET)) {
+    current_token_++;
 
     auto expression = parse_expr();
     if (!expression) {
@@ -473,37 +487,48 @@ ParserResult<ExpressionNode> Parser::parse_factor() {
     }
 
     // Check that the next token is CLOSED_BRACKET
-    auto closed_bracket = lexer_.pop(TokenType::CLOSED_BRACKET);
-    if (!closed_bracket) {
-      return forward_error(std::move(closed_bracket));
+    if (!is_current_token(TokenType::CLOSED_BRACKET)) {
+      return unexpected_token_error(TokenType::CLOSED_BRACKET, *current_token_);
     }
+    current_token_++;
     return expression;
   }
-
-  // TODO: Lexer peek and advance should be cleaned up.
-  auto token = lexer_.peek();
 
   // INTEGER_CONST
   // REAL_CONST
   // ID
-  if (token.token_type == TokenType::INTEGER_CONST) {
-    auto integer_check = lexer_.advance(TokenType::INTEGER_CONST);
-    if (!integer_check) {
-      return forward_error(std::move(integer_check));
-    }
-    return detail::parse_integer_const(node_id_generator, *token.value);
-  } else if (token.token_type == TokenType::REAL_CONST) {
-    auto real_check = lexer_.advance(TokenType::REAL_CONST);
-    if (!real_check) {
-      return forward_error(std::move(real_check));
-    }
-    return detail::parse_double_const(node_id_generator, *token.value);
-  } else if (token.token_type == TokenType::ID) {
+  if (is_current_token(TokenType::INTEGER_CONST)) {
+    auto value = *current_token_->value;
+    current_token_++;
+    return detail::parse_integer_const(node_id_generator, value);
+  } else if (is_current_token(TokenType::REAL_CONST)) {
+    auto value = *current_token_->value;
+    current_token_++;
+    return detail::parse_double_const(node_id_generator, value);
+  } else if (is_current_token(TokenType::ID)) {
     return parse_variable();
   } else {
-    return make_error(ParserError{fmt::format("Unexpected token {} found while trying to parse factor grammar.",
-                                              token.token_type)});
+    return make_error(ParserError{fmt::format("Unexpected token {} found while trying to parse factor.",
+                                              current_token_->token_type)});
   }
+}
+Error<ParserError> Parser::unexpected_token_error(const TokenType token_type, const Token& actual) {
+  return make_error(ParserError{fmt::format("Unexpected token found. Expected: {}. Actual: {}.", token_type, actual)});
+}
+
+bool Parser::is_current_token(TokenType token_type) const {
+  return current_token_->token_type == token_type;
+}
+
+Parser::Parser(Parser&& parser) noexcept {
+  *this = std::move(parser);
+}
+
+Parser& Parser::operator=(Parser&& parser) noexcept {
+  tokens_ = std::move(parser.tokens_);
+  current_token_ = tokens_.begin();
+  node_id_generator = std::move(parser.node_id_generator);
+  return *this;
 }
 
 }

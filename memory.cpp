@@ -15,6 +15,7 @@ DataType Memory::read(const std::string& address) const {
 void Memory::set(const std::string& address, DataType value) {
   memory_[address] = value;
 }
+
 std::optional<DataType> Memory::try_read(const std::string& address) const {
   auto it = memory_.find(address);
   if (it == memory_.end()) {

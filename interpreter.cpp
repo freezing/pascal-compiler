@@ -129,7 +129,11 @@ static void add_error_if_variable(std::vector<InterpreterErrorsT>& errors, const
 }
 
 InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
-  auto program = Parser{std::move(text)}.parse_program();
+  auto parser = Parser::create(std::move(text));
+  if (!parser) {
+    return forward_error(std::move(parser));
+  }
+  auto program = parser->parse_program();
   if (!program) {
     return forward_error(std::move(program));
   }

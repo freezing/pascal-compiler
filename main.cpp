@@ -8,8 +8,13 @@
 using namespace freezing::interpreter;
 
 int visualise_ast(std::string&& pascal_program) {
-  Parser parser{std::move(pascal_program)};
-  auto ast = parser.parse_program();
+  auto parser = Parser::create(std::move(pascal_program));
+  if (!parser) {
+    std::cout << parser.error() << std::endl;
+    return -1;
+  }
+
+  auto ast = parser->parse_program();
   if (!ast) {
     std::cout << ast.error() << std::endl;
     return -1;
@@ -43,7 +48,19 @@ int run_interpreter(std::string&& pascal_program) {
   return 0;
 }
 
-int main() {
+int simple_main() {
+  std::string pascal_program = R"(
+PROGRAM Simple1;
+VAR
+  a: INTEGER;
+BEGIN
+  a := 10;
+END.
+)";
+  return visualise_ast(std::move(pascal_program));
+}
+
+int hard_main() {
   std::string pascal_program = R"(
 PROGRAM Part12;
 VAR
@@ -68,8 +85,12 @@ END;  {P1}
 BEGIN {Part12}
    a := 10;
    P1(a + 10, a * a, 33.5 + 22);
-END  {Part12}
+END.  {Part12}
 )";
-//  return visualise_ast(std::move(pascal_program));
-  return run_interpreter(std::move(pascal_program));
+  return visualise_ast(std::move(pascal_program));
+//  return run_interpreter(std::move(pascal_program));
+}
+
+int main() {
+  return hard_main();
 }

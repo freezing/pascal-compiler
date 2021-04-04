@@ -36,6 +36,7 @@ struct AstVisitorCallbacks {
   std::function<void(const Param&)> param = [](const Param&) {};
   std::function<void(const CompoundStatement&)> compound_statement = [](const CompoundStatement&) {};
   std::function<void(const AssignmentStatement&)> assignment_statement = [](const AssignmentStatement&) {};
+  std::function<void(const ProcedureCall&)> procedure_call_post = [](const ProcedureCall&) {};
   std::function<void(const UnaryOp&)> unary_op = [](const UnaryOp&) {};
   std::function<void(const BinOp&)> bin_op = [](const BinOp&) {};
   std::function<void(const Variable&)> variable = [](const Variable&) {};
@@ -73,6 +74,10 @@ struct AstVisitorFn {
 
     void operator()(const AssignmentStatement& assignment_statement) const {
       self.visit(assignment_statement);
+    }
+
+    void operator()(const ProcedureCall& procedure_call) const {
+      self.visit(procedure_call);
     }
 
     void operator()(const Empty& empty) const {
@@ -131,6 +136,13 @@ struct AstVisitorFn {
     visit(assignment_statement.variable);
     std::visit(ExpressionVisitorFn{*this}, assignment_statement.expression);
     std::invoke(callbacks.assignment_statement, assignment_statement);
+  }
+
+  void visit(const ProcedureCall& procedure_call) const {
+    for (const auto& expr : procedure_call.parameters) {
+      std::visit(ExpressionVisitorFn{*this}, expr);
+    }
+    std::invoke(callbacks.procedure_call_post, procedure_call);
   }
 
   void visit(const BinOp& bin_op) const {

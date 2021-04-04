@@ -21,12 +21,13 @@ struct Num;
 struct Empty;
 struct VarDecl;
 struct ProcedureDecl;
+struct ProcedureCall;
 
 // Includes expression, factor and term nodes.
 using Identifier = std::string;
 using NumType = std::variant<int, double>;
 using ExpressionNode = std::variant<BinOp, UnaryOp, Variable, Num>;
-using Statement = std::variant<CompoundStatement, AssignmentStatement, Empty>;
+using Statement = std::variant<ProcedureCall, CompoundStatement, AssignmentStatement, Empty>;
 
 struct Empty {
   NodeId id;
@@ -95,6 +96,12 @@ struct ProcedureDecl {
   std::string name;
   std::vector<Param> parameters;
   Block block;
+};
+
+struct ProcedureCall {
+  NodeId id;
+  std::string name;
+  std::vector<ExpressionNode> parameters;
 };
 
 struct Program {
