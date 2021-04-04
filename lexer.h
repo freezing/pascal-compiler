@@ -59,7 +59,7 @@ private:
   LexerResult<Token> parse_token();
 
   // Returns a debug string to print around the given location.
-  static std::string mark_text(const std::string& text, CharLocation location);
+  static std::string debug_output(const std::string& text, CharLocation location);
 };
 
 }
