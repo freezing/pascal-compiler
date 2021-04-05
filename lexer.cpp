@@ -26,34 +26,8 @@ Lexer::Lexer(std::string&& text) : text_{std::move(text)}, pos_{0}, current_loca
 
 Lexer::Lexer(const std::string& text) : text_{text}, pos_{0}, current_location_{0, 0} {}
 
-LexerResult<Token> Lexer::pop() {
-  auto ret = std::move(current_token_);
-  advance();
-  return ret;
-}
-
-LexerResult<Token> Lexer::pop(TokenType token_type) {
-  auto ret = std::move(current_token_);
-  auto check = advance(token_type);
-  if (!check) {
-    return forward_error(std::move(check));
-  }
-  return ret;
-}
-
 const Token& Lexer::peek() {
   return current_token_;
-}
-
-LexerResult<Void> Lexer::advance(TokenType token_type) {
-  if (current_token_.token_type == token_type) {
-    return advance();
-  }
-  // TODO: It's technically a parser error.
-  return make_error(LexerError{current_location_, fmt::format("Expected token type: {}, but got: {}\n{}",
-                                                              token_type,
-                                                              current_token_.token_type,
-                                                              debug_output(text_, current_location_))});
 }
 
 LexerResult<Void> Lexer::advance() {

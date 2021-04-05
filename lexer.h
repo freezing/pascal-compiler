@@ -33,15 +33,9 @@ public:
   explicit Lexer(std::string&& text);
   explicit Lexer(const std::string& text);
 
-  LexerResult<Token> pop();
-  LexerResult<Token> pop(TokenType token_type);
   // Returns the token after the last successful advance() call.
   // The result is undefined if the advance() method hasn't been called.
   const Token& peek();
-  // TODO: Lexer shouldn't provide advance(TokenType) because the resulting error if the token doesn't match given
-  // token_type is ParserError, not LexerError.
-  // Let Parser deal with it.
-  LexerResult<Void> advance(TokenType token_type);
   LexerResult<Void> advance();
 
 private:
