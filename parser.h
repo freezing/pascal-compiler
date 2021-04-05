@@ -78,7 +78,7 @@ public:
   Parser(Parser&& parser) noexcept;
   Parser& operator=(Parser&& parser) noexcept;
 
-  static Result<Parser, LexerError> create(std::string&& text);
+  static Result<Parser, LexerError> create(std::string text);
 
   ParserResult<Program> parse_program();
   ParserResult<Block> parse_block();

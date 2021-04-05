@@ -33,6 +33,9 @@ using InterpreterResult = Result<T, InterpreterErrorsT>;
 
 struct ProgramState {
   Memory memory;
+  // TODO: This is a temporary hack, until I implement proper source-to-source compiler which uses memory to store
+  // temporary values.
+  // This is currently acting as a bypass for optimization stage.
   std::map<NodeId, DataType> expression_evaluations;
   std::map<std::string, SymbolTable> symbol_tables;
   std::vector<InterpreterErrorsT> errors;

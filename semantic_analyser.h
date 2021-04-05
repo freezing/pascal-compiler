@@ -21,7 +21,8 @@ struct SemanticAnalysisError {
 
 class SemanticAnalyser {
 public:
-  Result<std::map<std::string, SymbolTable>, std::vector<SemanticAnalysisError>> analyse(const Program& program) const;
+  Result<std::map<std::string, SymbolTable>, std::vector<SemanticAnalysisError>> analyse(const std::string& text,
+                                                                                         const Program& program) const;
 };
 
 }

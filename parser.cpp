@@ -28,7 +28,7 @@ Parser::Parser(std::string text, std::vector<Token>&& tokens) : text_{std::move(
                                               node_id_generator{} {
 }
 
-Result<Parser, LexerError> Parser::create(std::string&& text) {
+Result<Parser, LexerError> Parser::create(std::string text) {
   Lexer lexer{text};
 
   std::vector<Token> tokens;

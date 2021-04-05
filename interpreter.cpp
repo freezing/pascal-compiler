@@ -118,6 +118,7 @@ static void add_error_if_variable(std::vector<InterpreterErrorsT>& errors, const
     void operator()(const UnaryOp& unary_op) const {}
 
     void operator()(const Variable& variable) const {
+      // TODO: Provide debug output such as line number. This should be solved at the higher level.
       errors.emplace_back(InterpreterError{fmt::format("Unknown value for variable: '{}'", variable.name)});
     }
 
@@ -129,7 +130,7 @@ static void add_error_if_variable(std::vector<InterpreterErrorsT>& errors, const
 }
 
 InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
-  auto parser = Parser::create(std::move(text));
+  auto parser = Parser::create(text);
   if (!parser) {
     return forward_error(std::move(parser));
   }
@@ -140,7 +141,7 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
 
   ProgramState program_state;
 
-  auto symbol_tables = SemanticAnalyser{}.analyse(*program);
+  auto symbol_tables = SemanticAnalyser{}.analyse(text, *program);
   if (!symbol_tables) {
     program_state.errors.insert(program_state.errors.end(), symbol_tables.error().begin(), symbol_tables.error().end());
     return program_state;
@@ -158,6 +159,13 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
       return;
     }
     program_state.memory.set(assignment_statement.variable.name, expr_eval_it->second);
+    program_state.expression_evaluations[assignment_statement.variable.id] = expr_eval_it->second;
+  };
+  callbacks.variable = [&program_state](const Variable& variable) {
+    auto value = program_state.memory.try_read(variable.name);
+    if (value) {
+      program_state.expression_evaluations[variable.id] = *value;
+    }
   };
   callbacks.unary_op = [&program_state](const UnaryOp& unary_op) {
     DataType expression_value = program_state.expression_evaluations[node_id(*unary_op.node)];

@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include "token.h"
 #include "symbol_table.h"
+#include "variant_match.h"
 
 namespace freezing::interpreter {
 
@@ -19,8 +20,8 @@ SymbolTable::SymbolTable(std::string&& name) : name_{std::move(name)} {
 }
 
 void SymbolTable::initialize() {
-  symbols_[fmt::format("{}", TokenType::INTEGER)] = SymbolType::TYPE_SPECIFICATION;
-  symbols_[fmt::format("{}", TokenType::REAL)] = SymbolType::TYPE_SPECIFICATION;
+  symbols_[fmt::format("{}", TokenType::INTEGER)] = TypeSpecificationSymbol{};
+  symbols_[fmt::format("{}", TokenType::REAL)] = TypeSpecificationSymbol{};
 }
 
 Result<Void> SymbolTable::define(const std::string& symbol_name, Symbol&& symbol) {
@@ -46,27 +47,28 @@ const std::map<std::string, Symbol>& SymbolTable::data() const {
 const std::string& SymbolTable::name() const {
   return name_;
 }
-
-struct SymbolPrinterFn {
-  std::ostream& os;
-
-  std::ostream& operator()(const SymbolType& symbol_type) {
-    return os << symbol_type;
+std::optional<ProcedureHeaderSymbol> SymbolTable::find_procedure_header(const std::string& procedure_name) const {
+  auto symbol = find(procedure_name);
+  if (!symbol) {
+    return {};
   }
-};
+  return variant_try_get<ProcedureHeaderSymbol>(*symbol);
+}
 
-std::ostream& operator<<(std::ostream& os, const SymbolType& symbol_type) {
-  switch (symbol_type) {
-  case SymbolType::VARIABLE:
-    return os << "VARIABLE";
-  case SymbolType::TYPE_SPECIFICATION:
-    return os << "TYPE_SPECIFICATION";
-  }
-  return os << "UNKNOWN";
+std::ostream& operator<<(std::ostream& os, const VariableSymbol& symbol) {
+  return os << "VariableSymbol";
+}
+
+std::ostream& operator<<(std::ostream& os, const TypeSpecificationSymbol& symbol) {
+  return os << "TypeSpecificationSymbol";
+}
+
+std::ostream& operator<<(std::ostream& os, const ProcedureHeaderSymbol& symbol) {
+  return os << fmt::format("ProcedureHeaderSymbol(name={}, num_args={})", symbol.name, symbol.parameters.size());
 }
 
 std::ostream& operator<<(std::ostream& os, const Symbol& symbol) {
-  return std::visit(SymbolPrinterFn{os}, symbol);
+  return std::visit([&os](auto&& arg) -> std::ostream& { return os << arg; }, symbol);
 }
 
 std::ostream& operator<<(std::ostream& os, const SymbolTable& symbol_table) {

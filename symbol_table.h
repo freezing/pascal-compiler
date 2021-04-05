@@ -12,15 +12,17 @@
 #include <string>
 #include <fmt/format.h>
 #include "result.h"
+#include "ast.h"
 
 namespace freezing::interpreter {
 
-enum class SymbolType {
-  TYPE_SPECIFICATION,
-  VARIABLE,
+struct VariableSymbol {};
+struct TypeSpecificationSymbol {};
+struct ProcedureHeaderSymbol {
+  std::string name;
+  std::vector<Param> parameters;
 };
-
-using Symbol = std::variant<SymbolType>;
+using Symbol = std::variant<VariableSymbol, TypeSpecificationSymbol, ProcedureHeaderSymbol>;
 
 class SymbolTable {
 public:
@@ -31,6 +33,8 @@ public:
   Result<Void> define(const std::string& symbol_name, Symbol&& symbol);
 
   std::optional<Symbol> find(const std::string& symbol_name) const;
+
+  std::optional<ProcedureHeaderSymbol> find_procedure_header(const std::string& procedure_name) const;
 
   const std::map<std::string, Symbol>& data() const;
 
@@ -43,7 +47,9 @@ private:
   void initialize();
 };
 
-std::ostream& operator<<(std::ostream& os, const SymbolType& symbol_type);
+std::ostream& operator<<(std::ostream& os, const VariableSymbol& symbol);
+std::ostream& operator<<(std::ostream& os, const TypeSpecificationSymbol& symbol);
+std::ostream& operator<<(std::ostream& os, const ProcedureHeaderSymbol& symbol);
 std::ostream& operator<<(std::ostream& os, const Symbol& symbol);
 std::ostream& operator<<(std::ostream& os, const SymbolTable& symbol_table);
 
