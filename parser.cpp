@@ -3,7 +3,10 @@
 //
 
 #include "parser.h"
+
+#include <utility>
 #include "result.h"
+#include "debug.h"
 
 namespace freezing::interpreter {
 
@@ -21,12 +24,12 @@ ParserResult<Num> parse_double_const(IdGenerator<NodeId>& node_id_generator, con
 
 }
 
-Parser::Parser(std::vector<Token>&& tokens) : tokens_{std::move(tokens)}, current_token_{tokens_.begin()},
+Parser::Parser(std::string text, std::vector<Token>&& tokens) : text_{std::move(text)}, tokens_{std::move(tokens)}, current_token_{tokens_.begin()},
                                               node_id_generator{} {
 }
 
 Result<Parser, LexerError> Parser::create(std::string&& text) {
-  Lexer lexer{std::move(text)};
+  Lexer lexer{text};
 
   std::vector<Token> tokens;
 
@@ -41,7 +44,7 @@ Result<Parser, LexerError> Parser::create(std::string&& text) {
     }
   }
   assert(tokens.back().token_type == TokenType::END_OF_FILE);
-  return Parser{std::move(tokens)};
+  return Parser{std::move(text), std::move(tokens)};
 }
 
 ParserResult<Program> Parser::parse_program() {
@@ -508,12 +511,16 @@ ParserResult<ExpressionNode> Parser::parse_factor() {
   } else if (is_current_token(TokenType::ID)) {
     return parse_variable();
   } else {
-    return make_error(ParserError{fmt::format("Unexpected token {} found while trying to parse factor.",
-                                              current_token_->token_type)});
+    return make_error(ParserError{fmt::format("Unexpected token {} found while trying to parse factor.\n{}",
+                                              current_token_->token_type,
+                                              debug_output(text_, current_token_->location))});
   }
 }
 Error<ParserError> Parser::unexpected_token_error(const TokenType token_type, const Token& actual) {
-  return make_error(ParserError{fmt::format("Unexpected token found. Expected: {}. Actual: {}.", token_type, actual)});
+  return make_error(ParserError{fmt::format("Unexpected token found. Expected: {}. Actual: {}.\n{}",
+                                            token_type,
+                                            actual,
+                                            debug_output(text_, current_token_->location))});
 }
 
 bool Parser::is_current_token(TokenType token_type) const {
@@ -525,6 +532,7 @@ Parser::Parser(Parser&& parser) noexcept {
 }
 
 Parser& Parser::operator=(Parser&& parser) noexcept {
+  text_ = std::move(parser.text_);
   tokens_ = std::move(parser.tokens_);
   current_token_ = tokens_.begin();
   node_id_generator = std::move(parser.node_id_generator);

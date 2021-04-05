@@ -122,6 +122,8 @@ struct CharLocation {
 };
 
 struct Token {
+  // Location of the first character in the token.
+  CharLocation location;
   TokenType token_type;
   std::optional<std::string> value;
 

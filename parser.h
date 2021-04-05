@@ -73,7 +73,8 @@ using ParserResult = Result<T, std::variant<ParserError, LexerError>>;
 //    variable: ID
 class Parser {
 public:
-  explicit Parser(std::vector<Token>&& tokens);
+  // Custom move constructor and move assignment are required because internally the parser stores vector const_iterator,
+  // which becomes invalid after move.
   Parser(Parser&& parser) noexcept;
   Parser& operator=(Parser&& parser) noexcept;
 
@@ -102,12 +103,15 @@ public:
   ParserResult<Variable> parse_variable();
 
 private:
+  std::string text_;
   // Contains at least END_OF_FILE token, which is always the last one.
   std::vector<Token> tokens_;
   std::vector<Token>::const_iterator current_token_;
   IdGenerator<NodeId> node_id_generator;
 
-  static Error<ParserError> unexpected_token_error(TokenType token_type, const Token& actual);
+  explicit Parser(std::string text, std::vector<Token>&& tokens);
+
+  Error<ParserError> unexpected_token_error(TokenType token_type, const Token& actual);
   bool is_current_token(TokenType token_type) const;
 };
 

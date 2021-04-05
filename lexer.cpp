@@ -3,23 +3,28 @@
 //
 
 #include <iomanip>
+#include <utility>
 #include "lexer.h"
+#include "debug.h"
 
 namespace freezing::interpreter {
 
-const std::map<std::string, Token>
+// TODO: Should be token types.
+const std::map<std::string, TokenType>
     kReservedKeywords{
-    {"PROGRAM", Token{TokenType::PROGRAM, "PROGRAM"}},
-    {"VAR", Token{TokenType::VAR, "VAR"}},
-    {"DIV", Token{TokenType::INTEGER_DIV, "DIV"}},
-    {"INTEGER", Token{TokenType::INTEGER, "INTEGER"}},
-    {"REAL", Token{TokenType::REAL, "REAL"}},
-    {"BEGIN", Token{TokenType::BEGIN, "BEGIN"}},
-    {"END", Token{TokenType::END, "END"}},
-    {"PROCEDURE", Token{TokenType::PROCEDURE}},
+    {"PROGRAM", TokenType::PROGRAM},
+    {"VAR", TokenType::VAR},
+    {"DIV", TokenType::INTEGER_DIV},
+    {"INTEGER", TokenType::INTEGER},
+    {"REAL", TokenType::REAL},
+    {"BEGIN", TokenType::BEGIN},
+    {"END", TokenType::END},
+    {"PROCEDURE", TokenType::PROCEDURE},
 };
 
 Lexer::Lexer(std::string&& text) : text_{std::move(text)}, pos_{0}, current_location_{0, 0} {}
+
+Lexer::Lexer(const std::string& text) : text_{text}, pos_{0}, current_location_{0, 0} {}
 
 LexerResult<Token> Lexer::pop() {
   auto ret = std::move(current_token_);
@@ -91,7 +96,7 @@ LexerResult<Token> Lexer::parse_token() {
   while (true) {
     skip_whitespaces();
     if (pos_ >= text_.size()) {
-      return {Token{TokenType::END_OF_FILE, {}}};
+      return {Token{current_location_, TokenType::END_OF_FILE, {}}};
     }
 
     // TODO: Use peek_char().
@@ -110,37 +115,37 @@ LexerResult<Token> Lexer::parse_token() {
       }
 
       if (peek_char() != '.') {
-        return Token{TokenType::INTEGER_CONST, std::move(value)};
+        return Token{location, TokenType::INTEGER_CONST, std::move(value)};
       }
       // Otherwise it's REAL.
       value += next_char();
       while (pos_ < text_.size() && isdigit(peek_char())) {
         value += next_char();
       }
-      return Token{TokenType::REAL_CONST, std::move(value)};
+      return Token{location, TokenType::REAL_CONST, std::move(value)};
     } else if (current_char == '+') {
-      return Token{TokenType::PLUS, "+"};
+      return Token{location, TokenType::PLUS, "+"};
     } else if (current_char == '-') {
-      return Token{TokenType::MINUS, "-"};
+      return Token{location, TokenType::MINUS, "-"};
     } else if (current_char == '*') {
-      return Token{TokenType::MUL, "*"};
+      return Token{location, TokenType::MUL, "*"};
     } else if (current_char == '/') {
-      return Token{TokenType::REAL_DIV, "/"};
+      return Token{location, TokenType::REAL_DIV, "/"};
     } else if (current_char == '(') {
-      return Token{TokenType::OPEN_BRACKET, "("};
+      return Token{location, TokenType::OPEN_BRACKET, "("};
     } else if (current_char == ')') {
-      return Token{TokenType::CLOSED_BRACKET, ")"};
+      return Token{location, TokenType::CLOSED_BRACKET, ")"};
     } else if (current_char == '.') {
-      return Token{TokenType::DOT, "."};
+      return Token{location, TokenType::DOT, "."};
     } else if (current_char == ':' && peek_char() == '=') {
       next_char();
-      return Token{TokenType::ASSIGN, ":="};
+      return Token{location, TokenType::ASSIGN, ":="};
     } else if (current_char == ':') {
-      return Token{TokenType::COLON, ":"};
+      return Token{location, TokenType::COLON, ":"};
     } else if (current_char == ';') {
-      return Token{TokenType::SEMICOLON, ";"};
+      return Token{location, TokenType::SEMICOLON, ";"};
     } else if (current_char == ',') {
-      return Token{TokenType::COMMA, ","};
+      return Token{location, TokenType::COMMA, ","};
     } else if (isalpha(current_char)) {
       std::string id;
       id += current_char;
@@ -151,49 +156,14 @@ LexerResult<Token> Lexer::parse_token() {
 
       auto it = kReservedKeywords.find(id);
       if (it == kReservedKeywords.end()) {
-        return Token{TokenType::ID, std::move(id)};
+        return Token{location, TokenType::ID, std::move(id)};
       }
-      return it->second;
+      return Token{location, it->second, fmt::format("{}", it->second)};
     }
-    return make_error(LexerError{location, fmt::format("Unknown character: {}", current_char)});
+    return make_error(LexerError{location, fmt::format("Unknown character sequence: {}\n{}",
+                                                       current_char,
+                                                       debug_output(text_, current_location_))});
   }
-}
-
-CharLocation Lexer::token_location() const {
-  return current_location_;
-}
-
-std::string Lexer::debug_output(const std::string& text, CharLocation location) {
-  std::stringstream ss;
-
-  int line_number = 0;
-  int col_number = 0;
-  bool add_line_number = true;
-  for (int i = 0; i < text.size(); i++) {
-    if (abs(location.line_number - line_number) <= 2) {
-      if (add_line_number) {
-        ss << std::setw(6) << line_number << "|";
-        add_line_number = false;
-      }
-      ss << text[i];
-    }
-
-    col_number++;
-    if (text[i] == '\n') {
-      add_line_number = true;
-      line_number++;
-      col_number = 0;
-
-      // This will ignore the errors on the last line, but that's okay.
-      if (line_number == location.line_number + 1) {
-        for (int j = 0; j < location.column_number - 1 + 7; j++) {
-          ss << "-";
-        }
-        ss << "^" << std::endl;
-      }
-    }
-  }
-  return ss.str();
 }
 
 }

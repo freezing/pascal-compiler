@@ -31,6 +31,7 @@ using LexerResult = Result<T, LexerError>;
 class Lexer {
 public:
   explicit Lexer(std::string&& text);
+  explicit Lexer(const std::string& text);
 
   LexerResult<Token> pop();
   LexerResult<Token> pop(TokenType token_type);
@@ -42,7 +43,6 @@ public:
   // Let Parser deal with it.
   LexerResult<Void> advance(TokenType token_type);
   LexerResult<Void> advance();
-  CharLocation token_location() const;
 
 private:
   // Text to interpret.
@@ -57,9 +57,6 @@ private:
   void skip_whitespaces();
   void skip_until_comment_close();
   LexerResult<Token> parse_token();
-
-  // Returns a debug string to print around the given location.
-  static std::string debug_output(const std::string& text, CharLocation location);
 };
 
 }
