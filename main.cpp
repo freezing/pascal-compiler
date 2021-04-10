@@ -81,6 +81,7 @@ VAR
 BEGIN {P1}
   k := f + d - l;
   b := 300.3;
+  P2(30, 20 + k, 10.35 - b, b * b, k + b - f * (d + l));
 END;  {P1}
 
 BEGIN {Part12}
