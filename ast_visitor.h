@@ -117,7 +117,7 @@ struct AstVisitorFn {
     for (const auto& param : procedure_decl.parameters) {
       visit(param);
     }
-    visit(procedure_decl.block);
+    visit(*procedure_decl.block);
     std::invoke(callbacks.procedure_decl_post, procedure_decl);
   }
 

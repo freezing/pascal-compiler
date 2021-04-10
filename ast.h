@@ -95,7 +95,7 @@ struct ProcedureDecl {
   NodeId id;
   std::string name;
   std::vector<Param> parameters;
-  Block block;
+  std::shared_ptr<Block> block;
 };
 
 struct ProcedureCall {

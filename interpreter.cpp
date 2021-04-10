@@ -3,6 +3,7 @@
 //
 
 #include "interpreter.h"
+#include "variant_match.h"
 
 namespace freezing::interpreter {
 
@@ -102,31 +103,6 @@ static DataType UnaryCalculate(DataType result, TokenType token_type) {
   return -1;
 }
 
-struct NumTypeAsDoubleExtractorFn {
-  template<typename T>
-  double operator()(const T& number) const {
-    return number;
-  }
-};
-
-static void add_error_if_variable(std::vector<InterpreterErrorsT>& errors, const ExpressionNode& expression_node) {
-  struct Fn {
-    std::vector<InterpreterErrorsT>& errors;
-
-    void operator()(const BinOp& bin_op) const {}
-
-    void operator()(const UnaryOp& unary_op) const {}
-
-    void operator()(const Variable& variable) const {
-      // TODO: Provide debug output such as line number. This should be solved at the higher level.
-      errors.emplace_back(InterpreterError{fmt::format("Unknown value for variable: '{}'", variable.name)});
-    }
-
-    void operator()(const Num& num) const {}
-  };
-  std::visit(Fn{errors}, expression_node);
-}
-
 }
 
 InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
@@ -139,65 +115,160 @@ InterpreterResult<ProgramState> Interpreter::run(std::string&& text) {
     return forward_error(std::move(program));
   }
 
-  ProgramState program_state;
-
   auto symbol_tables = SemanticAnalyser{}.analyse(text, *program);
   if (!symbol_tables) {
-    program_state.errors.insert(program_state.errors.end(), symbol_tables.error().begin(), symbol_tables.error().end());
-    return program_state;
+    program_state_.errors
+        .insert(program_state_.errors.end(), symbol_tables.error().begin(), symbol_tables.error().end());
+    return program_state_;
   }
-  program_state.symbol_tables = std::move(*symbol_tables);
+  program_state_.symbol_tables = std::move(*symbol_tables);
+  call_stack_.push(StackFrame{program->name, {}});
+  auto result = process(program->block.compound_statement);
+  if (!result) {
+    return forward_error(std::move(result));
+  }
+  pop_call_stack();
+  assert(call_stack_.empty());
+  return program_state_;
+}
 
-  AstVisitorCallbacks callbacks{};
+InterpreterResult<Void> Interpreter::process(const CompoundStatement& compound_statement) {
+  struct ProcessStatementFn {
+    Interpreter& self;
 
-  callbacks.program_post = [](const Program& program) {};
-  callbacks.block = [](const Block& block) {};
-  callbacks.compound_statement = [](const CompoundStatement& compound_statement) {};
-  callbacks.assignment_statement = [&program_state](const AssignmentStatement& assignment_statement) {
-    auto expr_eval_it = program_state.expression_evaluations.find(node_id(assignment_statement.expression));
-    if (expr_eval_it == program_state.expression_evaluations.end()) {
-      return;
+    InterpreterResult<Void> operator()(const ProcedureCall& procedure_call) {
+      return self.process(procedure_call);
     }
-    program_state.memory.set(assignment_statement.variable.name, expr_eval_it->second);
-    program_state.expression_evaluations[assignment_statement.variable.id] = expr_eval_it->second;
+
+    InterpreterResult<Void> operator()(const CompoundStatement& compound_statement) {
+      return self.process(compound_statement);
+    }
+
+    InterpreterResult<Void> operator()(const AssignmentStatement& assignment_statement) {
+      return self.process(assignment_statement);
+    }
+
+    InterpreterResult<Void> operator()(const Empty& empty) {
+      return {};
+    }
   };
-  callbacks.variable = [&program_state](const Variable& variable) {
-    auto value = program_state.memory.try_read(variable.name);
-    if (value) {
-      program_state.expression_evaluations[variable.id] = *value;
-    }
-  };
-  callbacks.unary_op = [&program_state](const UnaryOp& unary_op) {
-    DataType expression_value = program_state.expression_evaluations[node_id(*unary_op.node)];
-    program_state.expression_evaluations[unary_op.id] = detail::UnaryCalculate(expression_value, unary_op.op_type);
-  };
-  callbacks.bin_op = [&program_state](const BinOp& bin_op) {
-    auto left_it = program_state.expression_evaluations.find(node_id(*bin_op.left));
-    auto right_it = program_state.expression_evaluations.find(node_id(*bin_op.right));
 
-    if (left_it == program_state.expression_evaluations.end()) {
-      detail::add_error_if_variable(program_state.errors, *bin_op.left);
-      return;
-    }
-    if (right_it == program_state.expression_evaluations.end()) {
-      detail::add_error_if_variable(program_state.errors, *bin_op.right);
-      return;
-    }
-
-    auto result = detail::Calculate(left_it->second, bin_op.op_type, right_it->second);
+  for (const auto& statement : compound_statement.statements) {
+    auto result = std::visit(ProcessStatementFn{*this}, statement);
     if (!result) {
-      program_state.errors.push_back(std::move(result).error());
-    } else {
-      program_state.expression_evaluations[bin_op.id] = *result;
+      return forward_error(std::move(result));
+    }
+  }
+  return {};
+}
+
+InterpreterResult<Void> Interpreter::process(const ProcedureCall& procedure_call) {
+  StackFrame stack_frame{procedure_call.name, {}};
+  // call_stack_ is guaranteed to have at least one element (main).
+  assert(!call_stack_.empty() && "Call stack is guaranteed to have at least one element (main scope).");
+  const auto symbol_table = program_state_.symbol_tables[call_stack_.top().scope_name];
+  auto procedure_symbol = symbol_table.find_procedure_header(procedure_call.name);
+  assert(procedure_symbol.has_value() && "SemanticAnalyser guarantees that the procedure exists in the current scope.");
+
+  assert(procedure_symbol->parameters.size() == procedure_call.parameters.size()
+             && "SemanticAnalyser guarantees that the number of passed arguments is equal to the number of formal parameters.");
+  for (int param_idx = 0; param_idx < procedure_symbol->parameters.size(); param_idx++) {
+    const auto& formal_param = procedure_symbol->parameters[param_idx];
+    auto expr_result = eval(procedure_call.parameters[param_idx]);
+    if (!expr_result) {
+      return forward_error(std::move(expr_result));
+    }
+    stack_frame.variables[formal_param.identifier] = *expr_result;
+  }
+  call_stack_.push(std::move(stack_frame));
+  auto result = process(procedure_symbol->block->compound_statement);
+  pop_call_stack();
+  return result;
+}
+
+InterpreterResult<Void> Interpreter::process(const AssignmentStatement& assignment_statement) {
+  auto result = eval(assignment_statement.expression);
+  if (!result) {
+    return forward_error(std::move(result));
+  }
+  call_stack_.top().variables[assignment_statement.variable.name] = *result;
+  return {};
+  // TODO: free store memory is not supported yet.
+//  std::string address = address_of(call_stack_.top().scope_name, assignment_statement.variable.name);
+//  program_state_.memory.set(address, *result);
+}
+
+InterpreterResult<DataType> Interpreter::eval(const ExpressionNode& expression_node) {
+  struct ExpressionNodeEvalFn {
+    Interpreter& self;
+
+    InterpreterResult<DataType> operator()(const BinOp& bin_op) {
+      auto left = self.eval(*bin_op.left);
+      if (!left) {
+        return forward_error(std::move(left));
+      }
+      auto right = self.eval(*bin_op.right);
+      if (!right) {
+        return forward_error(std::move(right));
+      }
+      return detail::Calculate(*left, bin_op.op_type, *right);
+    }
+
+    InterpreterResult<DataType> operator()(const UnaryOp& unary_op) {
+      auto result = self.eval(*unary_op.node);
+      if (!result) {
+        return forward_error(std::move(result));
+      }
+      return detail::UnaryCalculate(*result, unary_op.op_type);
+    }
+
+    InterpreterResult<DataType> operator()(const Variable& variable) {
+      auto value = self.read_variable_value(variable.name);
+      if (!value) {
+        // SemanticAnalyser is responsible for ensuring that the variable is declared.
+        // However, it doesn't ensure that it is initialized.
+        // Therefore, at this point if the variable doesn't exist in memory, then it is uninitialized.
+        return make_error(InterpreterError{
+            fmt::format("Cannot read uninitialized variable '{}' in scope '{}'",
+                        variable.name,
+                        self.call_stack_.top().scope_name)});
+      }
+      return *value;
+    }
+
+    InterpreterResult<DataType> operator()(const Num& num) {
+      return num.value;
     }
   };
-  callbacks.num = [&program_state](const Num& num) {
-    program_state.expression_evaluations[num.id] = std::visit(detail::NumTypeAsDoubleExtractorFn{}, num.value);
-  };
-  callbacks.empty = [](const Empty& empty) {};
 
-  AstVisitorFn{callbacks}.visit(*program);
-  return program_state;
+  return std::visit(ExpressionNodeEvalFn{*this}, expression_node);
+}
+
+std::string Interpreter::address_of(const std::string& scope_name, const std::string& variable_name) {
+  return fmt::format("{}_{}", scope_name, variable_name);
+}
+
+std::optional<DataType> Interpreter::read_variable_value(const std::string& variable_name) const {
+  // TODO: Read recursively from all stack frames, rather than just from the current.
+  const auto& stack_variables = call_stack_.top().variables;
+  auto it = stack_variables.find(variable_name);
+  if (it != stack_variables.end()) {
+    return it->second;
+  }
+
+  // If the variable can't be found in the stack, search for it in the memory.
+  // TODO: Current interpreter doesn't support free store memory as a concept.
+//  const auto& scope_name = call_stack_.top().scope_name;
+//  std::string address = address_of(scope_name, variable_name);
+//  return program_state_.memory.try_read(address);
+  return {};
+}
+void Interpreter::pop_call_stack() {
+  // TODO: Print only if stack debugging is enabled.
+  // Even better, invoke a callback that can be passed to interpreter.
+  StackFrame stack_frame = call_stack_.top();
+  std::cout << stack_frame << std::endl;
+  call_stack_.pop();
 }
 
 }

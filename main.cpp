@@ -79,7 +79,8 @@ VAR
    END;  {P2}
 
 BEGIN {P1}
-
+  {k := f + d - l; not working}
+  k := 300;
 END;  {P1}
 
 BEGIN {Part12}

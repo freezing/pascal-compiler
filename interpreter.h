@@ -5,9 +5,11 @@
 #ifndef PASCAL_COMPILER_TUTORIAL__INTERPRETER_H
 #define PASCAL_COMPILER_TUTORIAL__INTERPRETER_H
 
+#include <stack>
 #include <string>
 #include <map>
 #include <variant>
+#include "stack_frame.h"
 #include "ast_visitor.h"
 #include "result.h"
 #include "parser.h"
@@ -33,10 +35,7 @@ using InterpreterResult = Result<T, InterpreterErrorsT>;
 
 struct ProgramState {
   Memory memory;
-  // TODO: This is a temporary hack, until I implement proper source-to-source compiler which uses memory to store
-  // temporary values.
-  // This is currently acting as a bypass for optimization stage.
-  std::map<NodeId, DataType> expression_evaluations;
+  // TODO: Rename to scopes.
   std::map<std::string, SymbolTable> symbol_tables;
   std::vector<InterpreterErrorsT> errors;
 };
@@ -44,6 +43,20 @@ struct ProgramState {
 class Interpreter {
 public:
   InterpreterResult<ProgramState> run(std::string&& text);
+
+private:
+  ProgramState program_state_;
+  std::stack<StackFrame> call_stack_;
+
+  InterpreterResult<Void> process(const ProcedureCall& procedure_call);
+  InterpreterResult<Void> process(const CompoundStatement& compound_statement);
+  InterpreterResult<Void> process(const AssignmentStatement& assignment_statement);
+  InterpreterResult<DataType> eval(const ExpressionNode& expression_node);
+
+  std::optional<DataType> read_variable_value(const std::string& value) const;
+  void pop_call_stack();
+
+  static std::string address_of(const std::string& scope_name, const std::string& variable_name);
 };
 
 }

@@ -34,7 +34,8 @@ Result<std::map<std::string, SymbolTable>,
         }
         // Insert procedure in the current scope.
         auto define_proc = scopes[*current_scope]
-            .define(procedure_decl.name, ProcedureHeaderSymbol{procedure_decl.name, procedure_decl.parameters});
+            .define(procedure_decl.name,
+                    ProcedureHeaderSymbol{procedure_decl.name, procedure_decl.parameters, procedure_decl.block});
         if (!define_proc) {
           errors.push_back(SemanticAnalysisError{define_proc.error()});
         }

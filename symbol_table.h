@@ -21,6 +21,7 @@ struct TypeSpecificationSymbol {};
 struct ProcedureHeaderSymbol {
   std::string name;
   std::vector<Param> parameters;
+  std::shared_ptr<Block> block;
 };
 using Symbol = std::variant<VariableSymbol, TypeSpecificationSymbol, ProcedureHeaderSymbol>;
 

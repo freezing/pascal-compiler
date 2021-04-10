@@ -63,7 +63,7 @@ public:
       for (const auto& param : procedure_decl.parameters) {
         body += detail::format_node_edge(procedure_decl.id, param.id);
       }
-      body += detail::format_node_edge(procedure_decl.id, procedure_decl.block.id);
+      body += detail::format_node_edge(procedure_decl.id, procedure_decl.block->id);
     };
     callbacks.param = [&body](const Param& param) {
       body += detail::format_node(param.id, fmt::format("Param({}: {})", param.identifier, param.type_specification));

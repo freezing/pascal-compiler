@@ -24,8 +24,9 @@ ParserResult<Num> parse_double_const(IdGenerator<NodeId>& node_id_generator, con
 
 }
 
-Parser::Parser(std::string text, std::vector<Token>&& tokens) : text_{std::move(text)}, tokens_{std::move(tokens)}, current_token_{tokens_.begin()},
-                                              node_id_generator{} {
+Parser::Parser(std::string text, std::vector<Token>&& tokens) : text_{std::move(text)}, tokens_{std::move(tokens)},
+                                                                current_token_{tokens_.begin()},
+                                                                node_id_generator{} {
 }
 
 Result<Parser, LexerError> Parser::create(std::string text) {
@@ -214,7 +215,8 @@ ParserResult<ProcedureDecl> Parser::parse_procedure_declaration() {
     return unexpected_token_error(TokenType::SEMICOLON, *current_token_);
   }
   current_token_++;
-  return ProcedureDecl{node_id_generator.next(), std::move(*name), std::move(params), std::move(*block)};
+  return ProcedureDecl{node_id_generator.next(), std::move(*name), std::move(params),
+                       std::make_shared<Block>(std::move(*block))};
 }
 
 ParserResult<std::vector<Param>> Parser::parse_formal_parameter_list() {

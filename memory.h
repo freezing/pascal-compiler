@@ -15,6 +15,21 @@ namespace freezing::interpreter {
 
 using DataType = std::variant<int, double>;
 
+inline std::ostream& operator<<(std::ostream& os, const DataType& data) {
+  struct PrintFn {
+    std::ostream& os;
+
+    std::ostream& operator()(int value) {
+      return os << value;
+    }
+
+    std::ostream& operator()(double value) {
+      return os << value;
+    }
+  };
+  return std::visit(PrintFn{os}, data);
+}
+
 class Memory {
 public:
   DataType read(const std::string& address) const;
