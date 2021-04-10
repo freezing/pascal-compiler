@@ -73,14 +73,14 @@ VAR
 
    PROCEDURE P2(c, d: INTEGER; e, f, g: REAL);
    VAR
-      c, z : INTEGER;
+      z : INTEGER;
    BEGIN {P2}
       z := 777.5;
    END;  {P2}
 
 BEGIN {P1}
-  {k := f + d - l; not working}
-  k := 300;
+  k := f + d - l;
+  b := 300.3;
 END;  {P1}
 
 BEGIN {Part12}

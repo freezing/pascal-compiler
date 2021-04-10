@@ -31,6 +31,7 @@ Result<std::map<std::string, SymbolTable>,
         if (!insert.second) {
           errors.push_back(SemanticAnalysisError{
               fmt::format("Scope with name '{}' already exists.", procedure_decl.name)});
+          return;
         }
         // Insert procedure in the current scope.
         auto define_proc = scopes[*current_scope]
@@ -42,6 +43,11 @@ Result<std::map<std::string, SymbolTable>,
         // Update parent and current scope.
         parent_scopes[procedure_decl.name] = *current_scope;
         current_scope = procedure_decl.name;
+
+        auto& symbol_table = insert.first->second;
+        for (const auto& param : procedure_decl.parameters) {
+          symbol_table.define(param.identifier, VariableSymbol{});
+        }
       };
 
   callbacks.procedure_decl_post = [&current_scope, &parent_scopes](const ProcedureDecl& procedure_decl) {
